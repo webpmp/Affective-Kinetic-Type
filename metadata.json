@@ -1,0 +1,5 @@
+{
+  "name": "Affective Kinetic Type",
+  "description": "An interactive prototype that dynamically alters the visual presentation of an AI assistant's responses based on the user's emotional state using the circumplex model of affect.",
+  "requestFramePermissions": []
+}
