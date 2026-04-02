@@ -36,6 +36,7 @@ export function ChatArea({
 }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [showSystemThinking, setShowSystemThinking] = useState(false);
+  const [activeTab, setActiveTab] = useState<'thinking' | 'settings' | 'accessibility'>('thinking');
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   
   const latestAiMessageRef = useRef<HTMLDivElement>(null);
@@ -142,9 +143,12 @@ export function ChatArea({
     if (message.weatherEffect === 'eclipse') {
       avgLum = 0.1; // Eclipse is very dark
       effectiveBgColor = '#0f172a';
-    } else if (message.weatherEffect === 'fog') {
-      avgLum = 0.9; // Fog is very light
+    } else if (message.weatherEffect === 'fog' || message.weatherEffect === 'clouds' || message.weatherEffect === 'snow') {
+      avgLum = 0.9; // Fog, clouds, snow are light
       effectiveBgColor = '#ffffff';
+    } else if (message.weatherEffect === 'sun') {
+      avgLum = 0.9; // Sun is light
+      effectiveBgColor = '#fffbeb'; // Light yellow
     } else if (message.weatherEffect === 'rain') {
       avgLum = Math.max(0, avgLum - 0.1); 
     }
@@ -161,7 +165,7 @@ export function ChatArea({
     let darkest = Math.min(avgLum, textLum);
     let ratio = (brightest + 0.05) / (darkest + 0.05);
 
-    if (ratio < requiredRatio || message.weatherEffect === 'eclipse' || message.weatherEffect === 'fog') {
+    if (ratio < requiredRatio || message.weatherEffect === 'eclipse' || message.weatherEffect === 'fog' || message.weatherEffect === 'clouds' || message.weatherEffect === 'snow' || message.weatherEffect === 'sun') {
       msgFontColor = avgLum > 0.5 ? '#0f172a' : '#ffffff';
       textRgb = hexToRgb(msgFontColor);
       textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
@@ -257,6 +261,8 @@ export function ChatArea({
                 emotionInfluence={message.emotionInfluence}
                 animationIntensity={message.animationIntensity}
                 animationStability={message.animationStability}
+                wcagLevel={message.wcagLevel}
+                wcagStrictMode={message.wcagStrictMode}
               />
             ) : (
               <span>{word}</span>
@@ -345,34 +351,122 @@ export function ChatArea({
         <div className="absolute inset-0 z-0 pointer-events-none transition-colors duration-1000 bg-transparent" />
 
         {/* Weather Effects */}
-        {latestAiMessage?.weatherEffect === 'rain' && (
-          <div className="rain-container opacity-30">
-            {Array.from({ length: 100 }).map((_, i) => (
-              <div 
-                key={i} 
-                className="drop" 
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  animationDuration: `${0.5 + Math.random() * 0.5}s`,
-                  animationDelay: `${Math.random() * 2}s`,
-                  opacity: 0.3 + Math.random() * 0.7
-                }}
+        <AnimatePresence>
+          {!isTyping && latestAiMessage?.weatherEffect === 'rain' && (
+            <motion.div 
+              key="rain"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="rain-container"
+            >
+              {Array.from({ length: 150 }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className="drop" 
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    animationDuration: `${0.4 + Math.random() * 0.4}s`,
+                    animationDelay: `${Math.random() * 2}s`,
+                    opacity: 0.5 + Math.random() * 0.5
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+          {!isTyping && latestAiMessage?.weatherEffect === 'snow' && (
+            <motion.div 
+              key="snow"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="snow-container"
+            >
+              {Array.from({ length: 75 }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className="snowflake bg-white rounded-full absolute" 
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `-${Math.random() * 20}%`,
+                    width: `${Math.random() * 6 + 3}px`,
+                    height: `${Math.random() * 6 + 3}px`,
+                    animation: `snowfall ${3 + Math.random() * 5}s linear infinite`,
+                    animationDelay: `${Math.random() * 5}s`,
+                    opacity: 0.5 + Math.random() * 0.5
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+          {!isTyping && latestAiMessage?.weatherEffect === 'sun' && (
+            <motion.div 
+              key="sun"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="sun-container absolute inset-0 overflow-hidden pointer-events-none"
+            >
+              <motion.div 
+                initial={{ left: '-10%', top: 'calc(30% + 25px)' }}
+                animate={{ left: '50%', top: 'calc(10% + 25px)' }}
+                transition={{ duration: 15, ease: "easeOut" }}
+                className="absolute w-28 h-28 bg-yellow-400 rounded-full blur-xl animate-pulse" 
+                style={{ translateX: '-50%', translateY: '-50%', animationDuration: '4s' }} 
               />
-            ))}
-          </div>
-        )}
-        {latestAiMessage?.weatherEffect === 'fog' && (
-          <div className="fog-container opacity-40">
-            <div className="fog-layer" />
-            <div className="fog-layer-2" />
-          </div>
-        )}
-        {latestAiMessage?.weatherEffect === 'eclipse' && (
-          <div className="eclipse-container opacity-60">
-            <div className="eclipse-sun" />
-            <div className="eclipse-moon" />
-          </div>
-        )}
+              <motion.div 
+                initial={{ left: '-10%', top: 'calc(30% + 25px)' }}
+                animate={{ left: '50%', top: 'calc(10% + 25px)' }}
+                transition={{ duration: 15, ease: "easeOut" }}
+                className="absolute w-14 h-14 bg-yellow-200 rounded-full shadow-[0_0_45px_rgba(253,224,71,0.8)]" 
+                style={{ translateX: '-50%', translateY: '-50%' }} 
+              />
+            </motion.div>
+          )}
+          {!isTyping && latestAiMessage?.weatherEffect === 'clouds' && (
+            <motion.div 
+              key="clouds"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="clouds-container absolute inset-0 overflow-hidden pointer-events-none"
+            >
+              <div className="absolute top-10 left-10 w-64 h-24 bg-white rounded-full blur-md animate-cloud-move-1" />
+              <div className="absolute top-20 right-20 w-80 h-32 bg-white rounded-full blur-md animate-cloud-move-2" />
+              <div className="absolute top-40 left-1/3 w-72 h-28 bg-white rounded-full blur-md animate-cloud-move-3" />
+            </motion.div>
+          )}
+          {!isTyping && latestAiMessage?.weatherEffect === 'fog' && (
+            <motion.div 
+              key="fog"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="fog-container"
+            >
+              <div className="fog-layer" />
+              <div className="fog-layer-2" />
+            </motion.div>
+          )}
+          {!isTyping && latestAiMessage?.weatherEffect === 'eclipse' && (
+            <motion.div 
+              key="eclipse"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0) }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5 }}
+              className="eclipse-container"
+            >
+              <div className="eclipse-sun" />
+              <div className="eclipse-moon" />
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="relative z-10 flex flex-col h-full justify-center w-full">
           <AnimatePresence mode="wait">
@@ -447,31 +541,54 @@ export function ChatArea({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-slate-800 border-t border-b border-slate-700 p-4 shrink-0 z-10"
+            className="bg-slate-800 border-t border-b border-slate-700 p-4 shrink-0 z-10 w-full"
           >
             <div className="max-w-4xl mx-auto w-full">
-              <details className="text-xs text-slate-300 leading-relaxed group">
-                <summary className="font-semibold text-slate-200 cursor-pointer select-none list-none flex items-center gap-1">
-                  <span className="group-open:rotate-90 transition-transform text-[10px]">▶</span>
+              <div className="flex space-x-2 border-b border-slate-700 mb-3">
+                <button
+                  onClick={() => setActiveTab('thinking')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors ${activeTab === 'thinking' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+                >
                   System Thinking
-                </summary>
-                <div className="mt-2 italic pl-3 border-l-2 border-white/20">{latestAiMessage.thinking}</div>
-                <div className="mt-3 p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-white/10 text-[11px] font-mono space-y-1.5 text-slate-300">
-                  <div className="font-semibold text-slate-200 mb-2 font-sans uppercase tracking-wider text-[10px]">Kinetic Type Settings</div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <div><span className="text-slate-400">Sentiment:</span> {(latestAiMessage.sentiment ?? 0).toFixed(2)}</div>
-                    <div className="truncate" title={latestAiMessage.fontFamily}><span className="text-slate-400">Font:</span> {(latestAiMessage.fontFamily || '"Inter"').replace(/"/g, '').split(',')[0]}</div>
-                    <div><span className="text-slate-400">Engagement:</span> {(latestAiMessage.engagement ?? 0).toFixed(2)}</div>
-                    <div><span className="text-slate-400">Size:</span> {latestAiMessage.fontSize || 16}px</div>
-                    <div><span className="text-slate-400">Sex:</span> {latestAiMessage.sex || 'Neutral'}</div>
-                    <div className="truncate" title={latestAiMessage.motionStyle || 'default'}><span className="text-slate-400">Motion:</span> {latestAiMessage.motionStyle || 'default'}</div>
-                    <div><span className="text-slate-400">Age:</span> {latestAiMessage.age || 30}</div>
-                    <div><span className="text-slate-400">Accessibility:</span> {latestAiMessage.wcagLevel || 'AA'} {latestAiMessage.wcagStrictMode ? '(Strict)' : ''}</div>
-                    <div><span className="text-slate-400">Conv. Mode:</span> {conversationMode ? 'On' : 'Off'}</div>
-                    <div><span className="text-slate-400">Interval:</span> {messageInterval}s</div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors ${activeTab === 'settings' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+                >
+                  Kinetic Type Settings
+                </button>
+                <button
+                  onClick={() => setActiveTab('accessibility')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors ${activeTab === 'accessibility' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+                >
+                  Accessibility Adjustments
+                </button>
+              </div>
+              
+              <div className="text-xs text-slate-300 leading-relaxed h-[160px] overflow-y-auto">
+                {activeTab === 'thinking' && (
+                  <div className="italic pl-3 border-l-2 border-white/20">{latestAiMessage.thinking}</div>
+                )}
+                
+                {activeTab === 'settings' && (
+                  <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-white/10 text-[11px] font-mono space-y-1.5 text-slate-300">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div><span className="text-slate-400">Sentiment:</span> {(latestAiMessage.sentiment ?? 0).toFixed(2)}</div>
+                      <div className="truncate" title={latestAiMessage.fontFamily}><span className="text-slate-400">Font:</span> {(latestAiMessage.fontFamily || '"Inter"').replace(/"/g, '').split(',')[0]}</div>
+                      <div><span className="text-slate-400">Engagement:</span> {(latestAiMessage.engagement ?? 0).toFixed(2)}</div>
+                      <div><span className="text-slate-400">Size:</span> {latestAiMessage.fontSize || 16}px</div>
+                      <div><span className="text-slate-400">Sex:</span> {latestAiMessage.sex || 'Neutral'}</div>
+                      <div className="truncate" title={latestAiMessage.motionStyle || 'default'}><span className="text-slate-400">Motion:</span> {latestAiMessage.motionStyle || 'default'}</div>
+                      <div><span className="text-slate-400">Age:</span> {latestAiMessage.age || 30}</div>
+                      <div><span className="text-slate-400">Accessibility:</span> {latestAiMessage.wcagLevel || 'AA'} {latestAiMessage.wcagStrictMode ? '(Strict)' : ''}</div>
+                      <div><span className="text-slate-400">Conv. Mode:</span> {conversationMode ? 'On' : 'Off'}</div>
+                      <div><span className="text-slate-400">Interval:</span> {messageInterval}s</div>
+                    </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-white/10">
-                    <div className="font-semibold text-slate-200 mb-2 font-sans uppercase tracking-wider text-[10px]">Accessibility Adjustments</div>
+                )}
+
+                {activeTab === 'accessibility' && (
+                  <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-white/10 text-[11px] font-mono space-y-1.5 text-slate-300">
                     <ul className="list-disc pl-4 space-y-1 text-slate-300">
                       <li><span className="text-slate-400">Contrast:</span> Enforced {latestAiMessage.wcagLevel || 'AA'} compliance (minimum ratio {latestAiMessage.wcagLevel === 'AAA' ? '7.0:1' : latestAiMessage.wcagLevel === 'A' ? '3.0:1' : '4.5:1'}).</li>
                       <li><span className="text-slate-400">Text Size:</span> Base size {latestAiMessage.fontSize || 16}px.</li>
@@ -479,8 +596,8 @@ export function ChatArea({
                       <li><span className="text-slate-400">Decoration:</span> Visual effects filtered to maintain legibility and prevent visual noise.</li>
                     </ul>
                   </div>
-                </div>
-              </details>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

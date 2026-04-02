@@ -32,11 +32,11 @@
 .drop {
   position: absolute;
   bottom: 100%;
-  width: 1px;
-  height: 15px;
+  width: 2px;
+  height: 25px;
   pointer-events: none;
   animation: drop linear infinite;
-  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.3));
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.8));
 }
 
 @keyframes drop {
@@ -83,8 +83,8 @@
 }
 
 @keyframes fog-move {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
 }
 
 /* Eclipse Effect */
@@ -135,6 +135,31 @@
   0% { box-shadow: 0 0 15px #fdf8e3, 0 0 40px #fde047, 0 0 80px #f97316; }
   100% { box-shadow: 0 0 20px #fdf8e3, 0 0 50px #fdf8e3, 0 0 100px #bae6fd; }
 }
+
+@keyframes snowfall {
+  0% { transform: translateY(0vh) rotate(0deg); }
+  100% { transform: translateY(120vh) rotate(360deg); }
+}
+
+@keyframes float-slow {
+  0% { transform: translateX(0) translateY(0); }
+  33% { transform: translateX(20px) translateY(-10px); }
+  66% { transform: translateX(-10px) translateY(10px); }
+  100% { transform: translateX(0) translateY(0); }
+}
+
+@keyframes cloud-move {
+  0% { transform: translateX(-50vw); }
+  100% { transform: translateX(100vw); }
+}
+
+.animate-float-slow {
+  animation: float-slow ease-in-out infinite;
+}
+
+.animate-cloud-move-1 { animation: cloud-move 25s linear infinite; }
+.animate-cloud-move-2 { animation: cloud-move 35s linear infinite; }
+.animate-cloud-move-3 { animation: cloud-move 30s linear infinite; }
 
 @theme inline {
   --font-heading: var(--font-sans);

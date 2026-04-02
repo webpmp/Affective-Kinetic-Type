@@ -33,8 +33,8 @@ export default function App() {
   const [messageInterval, setMessageInterval] = useState(13);
   const [bgPrompt, setBgPrompt] = useState<string | null>(null);
   const [bgType, setBgType] = useState<'image' | 'gradient'>('gradient');
-  const [gradientColor1, setGradientColor1] = useState('#4f46e5');
-  const [gradientColor2, setGradientColor2] = useState('#ec4899');
+  const [gradientColor1, setGradientColor1] = useState('#ffffff');
+  const [gradientColor2, setGradientColor2] = useState('#2432ff');
   const [gradientDirection, setGradientDirection] = useState('135deg');
   const [weatherContext, setWeatherContext] = useState<string | null>(null);
 
@@ -314,7 +314,7 @@ export default function App() {
         </div>
       </main>
       <footer className="bg-slate-100 py-2 text-center text-xs text-slate-500 border-t border-slate-200 shrink-0">
-        &copy; 2026 Chris Adkins. All rights reserved.
+        &copy; 2026 Chris Adkins
       </footer>
     </div>
   );

@@ -28,7 +28,7 @@ export interface ChatMessage {
   wcagStrictMode?: boolean;
   age?: number;
   sex?: string;
-  weatherEffect?: 'none' | 'rain' | 'fog' | 'eclipse';
+  weatherEffect?: 'none' | 'rain' | 'fog' | 'eclipse' | 'clouds' | 'sun' | 'snow';
 }
 
 export async function generateResponse(
@@ -37,7 +37,7 @@ export async function generateResponse(
   engagement: number,
   age: number,
   sex: string
-): Promise<{ text: string, segments: string[], keywords: EmphasizedWord[], thinking: string, motionStyle: string, bgPrompt: string, weatherEffect: 'none' | 'rain' | 'fog' | 'eclipse' }> {
+): Promise<{ text: string, segments: string[], keywords: EmphasizedWord[], thinking: string, motionStyle: string, bgPrompt: string, weatherEffect: 'none' | 'rain' | 'fog' | 'eclipse' | 'clouds' | 'sun' | 'snow' }> {
   let history = messages.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
     parts: [{ text: m.content }]
@@ -96,7 +96,7 @@ You must return a JSON object containing six fields:
 - Quadrant 4 (Positive Sentiment, Low Engagement): "wave", "float", "breathe", "sway", "glide", "drift-up", "shimmer", "zoom"
 DO NOT repeat the same motion style from recent messages.
 5. "bgPrompt": A highly descriptive, comma-separated image generation prompt (e.g., "beautiful serene landscape, calm atmosphere, realistic, 8k") that contextually matches the topic of the conversation and the user's emotional state.
-6. "weatherEffect": A string representing a background weather effect to apply if the conversation context warrants it (e.g., talking about rain, sadness, storms -> "rain"; talking about heat, smoke, mystery, fog -> "fog"; talking about solar eclipse, astronomy, moon blocking sun -> "eclipse"). Otherwise, return "none".`;
+6. "weatherEffect": A string representing a background weather effect to apply if the conversation context warrants it (e.g., talking about rain, sadness, storms -> "rain"; talking about heat, smoke, mystery, fog -> "fog"; talking about solar eclipse, astronomy, moon blocking sun -> "eclipse"; talking about snow, winter, cold -> "snow"; talking about sunny, bright, happy -> "sun"; talking about cloudy, overcast -> "clouds"). Otherwise, return "none".`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3.1-pro-preview",
@@ -137,7 +137,7 @@ DO NOT repeat the same motion style from recent messages.
           },
           weatherEffect: {
             type: Type.STRING,
-            description: "A background weather effect to apply based on conversation context. Must be 'none', 'rain', 'fog', or 'eclipse'."
+            description: "A background weather effect to apply based on conversation context. Must be 'none', 'rain', 'fog', 'eclipse', 'clouds', 'sun', or 'snow'."
           }
         },
         required: ["thinking", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect"]

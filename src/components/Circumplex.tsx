@@ -51,7 +51,7 @@ function getClosestEmotion(v: number, a: number) {
 export function Circumplex({ sentiment, engagement, onChange }: CircumplexProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
 
   const updatePosition = useCallback((clientX: number, clientY: number) => {
     if (!containerRef.current) return;
@@ -95,7 +95,7 @@ export function Circumplex({ sentiment, engagement, onChange }: CircumplexProps)
 
     const handlePointerUp = () => {
       setIsDragging(false);
-      setTimeout(() => setShowTooltip(false), 1500);
+      // Tooltip remains visible
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -133,8 +133,6 @@ export function Circumplex({ sentiment, engagement, onChange }: CircumplexProps)
             ref={containerRef}
             className="absolute inset-0 rounded-full border-2 border-slate-200 bg-slate-50 cursor-crosshair overflow-hidden shadow-inner touch-none"
             onPointerDown={handlePointerDown}
-            onMouseEnter={() => setShowTooltip(true)}
-            onMouseLeave={() => !isDragging && setShowTooltip(false)}
             style={{
               background: 'radial-gradient(circle at center, #ffffff 0%, #f8fafc 100%)'
             }}

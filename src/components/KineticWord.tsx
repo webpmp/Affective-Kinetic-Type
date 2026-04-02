@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { DECORATION_POOL } from '../lib/decorations';
 import { ANIMATION_POOL } from '../lib/animations';
-import { ensureContrast, getRequiredContrast } from '../lib/wcag';
+import { ensureContrast, getRequiredContrast, getLuminance, hexToRgb } from '../lib/wcag';
 
 interface KineticWordProps {
   key?: React.Key;
@@ -46,6 +46,10 @@ export function KineticWord({
   const isHighEngagement = engagement >= 0;
   const intensity = Math.sqrt(sentiment * sentiment + engagement * engagement);
 
+  // Check background luminance to pick high-contrast colors
+  const bgRgb = hexToRgb(backgroundColor);
+  const isBgLight = getLuminance(bgRgb.r, bgRgb.g, bgRgb.b) > 0.5;
+
   // Determine emotional styling
   let emotionColor = baseColor;
   let fontWeight = 500;
@@ -57,26 +61,26 @@ export function KineticWord({
   let initialRotate = 0;
 
   if (isPositive && isHighEngagement) {
-    emotionColor = '#fbbf24'; // Amber-400
+    emotionColor = isBgLight ? '#78350f' : '#fde68a'; // Amber-900 : Amber-200
     fontWeight = 700;
     scale = 1.1 + (intensity * 0.1 * animationIntensity);
     kineticFont = '"Inter", sans-serif';
     initialY = 10 * intensity * animationIntensity;
   } else if (!isPositive && isHighEngagement) {
-    emotionColor = '#f87171'; // Red-400
+    emotionColor = isBgLight ? '#7f1d1d' : '#fecaca'; // Red-900 : Red-200
     fontWeight = 700;
     scale = 1.15 + (intensity * 0.15 * animationIntensity);
     kineticFont = '"Space Grotesk", sans-serif';
     initialX = -10 * intensity * animationIntensity;
     initialRotate = -5 * intensity * animationIntensity;
   } else if (!isPositive && !isHighEngagement) {
-    emotionColor = '#60a5fa'; // Blue-400
+    emotionColor = isBgLight ? '#1e3a8a' : '#bfdbfe'; // Blue-900 : Blue-200
     fontWeight = 400;
     scale = 0.95 - (intensity * 0.05 * animationIntensity);
     kineticFont = '"JetBrains Mono", monospace';
     initialY = -8 * intensity * animationIntensity;
   } else if (isPositive && !isHighEngagement) {
-    emotionColor = '#34d399'; // Emerald-400
+    emotionColor = isBgLight ? '#064e3b' : '#a7f3d0'; // Emerald-900 : Emerald-200
     fontWeight = 500;
     scale = 1.05 + (intensity * 0.05 * animationIntensity);
     kineticFont = '"Playfair Display", serif';
