@@ -1,4 +1,4 @@
-# Kinetic Typography AI Chat
+# Affective Kinetic Type
 
 An interactive, highly visual AI chat application that brings conversations to life using dynamic kinetic typography and context-aware environments. Powered by Google's Gemini AI, the application analyzes the sentiment, engagement, and context of the conversation to animate text and change background weather effects in real-time.
 
