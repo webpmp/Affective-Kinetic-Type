@@ -4,7 +4,6 @@ An interactive, highly visual AI chat application that brings conversations to l
 
 ## 🌟 Key Features
 
-*   **🤖 Gemini AI Integration:** Powered by Google's Gemini 3.1 Pro for intelligent, context-aware, and emotionally resonant conversations.
 *   **✨ Kinetic Typography:** Words dynamically animate, scale, and change color based on the underlying emotional sentiment and engagement levels of the AI's response.
 *   **🌦️ Dynamic Weather Backgrounds:** The environment reacts to your conversation. Discussing rain, snow, fog, or sunshine will automatically trigger immersive, animated background effects.
 *   **♿ Accessibility First:** Built-in WCAG compliance controls (A, AA, AAA). Strict mode ensures that text contrast remains readable and animations stay within safe, non-distracting limits.
