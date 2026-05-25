@@ -40,7 +40,19 @@ export function KineticWord({
   wcagStrictMode = true,
   forceColor
 }: KineticWordProps) {
-  if (!isEmphasized) {
+  const cleanWord = useMemo(() => word.trim().toLowerCase().replace(/[.,!?()[\]{}"']/g, ""), [word]);
+  const isFillerWord = useMemo(() => {
+    const fillerWords = new Set([
+      "the", "and", "but", "a", "an", "or", "to", "of", "in", "it", "is", "for", "on", "with", "as", "at", "by",
+      "this", "that", "these", "those", "from", "about", "he", "she", "they", "we", "you", "i", "me", "my",
+      "your", "their", "our", "his", "her", "us", "them", "then", "there", "which", "who", "whom",
+      "whose", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "shall",
+      "should", "can", "could", "may", "might", "must"
+    ]);
+    return fillerWords.has(cleanWord);
+  }, [cleanWord]);
+
+  if (!isEmphasized || isFillerWord) {
     return <span>{word}</span>;
   }
 
@@ -129,9 +141,8 @@ export function KineticWord({
         return { ...d, dist };
       });
       distances.sort((a, b) => a.dist - b.dist);
-      const topN = distances.slice(0, Math.min(3, distances.length));
-      const hash = word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const chosen = topN[hash % topN.length];
+      // Deterministically select the single closest emotional match for visual cohesion across words
+      const chosen = distances[0];
       selectedCssDecoration = chosen.style;
     }
   }

@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = process.env.GEMINI_API_KEY || "";
+console.log("[Affective Kinetic Type] Gemini API Key loaded, length:", apiKey.length);
+if (!apiKey) {
+  console.error("[Affective Kinetic Type] WARNING: Gemini API Key is missing or empty! Make sure GEMINI_API_KEY is defined in your environment or .env file.");
+}
+
+const ai = new GoogleGenAI({ apiKey });
+
 
 export interface EmphasizedWord {
   word: string;
@@ -11,6 +18,14 @@ export interface TextSegment {
   scale?: "small" | "normal" | "large" | "oversized" | "massive";
   alignment?: "left" | "center" | "right" | "justify";
   fontVariant?: string;
+}
+
+export interface ContextualEffect {
+  type: 'none' | 'sport' | 'location' | 'other';
+  subject: string;
+  imageUrl?: string;
+  animation?: 'none' | 'roll' | 'float' | 'bounce' | 'slide';
+  placement?: 'background' | 'bottom-right' | 'top-right' | 'left-side' | 'right-side' | 'floating' | 'none';
 }
 
 export interface ChatMessage {
@@ -40,6 +55,7 @@ export interface ChatMessage {
   bgAnimationType?: string;
   particleDensity?: number;
   weatherOverlay?: string;
+  contextualEffect?: ContextualEffect;
 }
 
 export async function generateResponse(
@@ -60,7 +76,8 @@ export async function generateResponse(
   baseTheme: string,
   bgAnimationType: string,
   particleDensity: number,
-  weatherOverlay: string
+  weatherOverlay: string,
+  contextualEffect?: ContextualEffect
 }> {
   let history = messages.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -122,7 +139,7 @@ Generate cohesive atmospheric scenes by inferring the PRIMARY CONVERSATIONAL SCE
 2. Location Interpretation: For locations, prioritize emotional/atmospheric identity (e.g., Seattle -> "overcast cinematic glow, pine silhouettes", Italy -> "Mediterranean warmth, textured stone"). 
 3. Scene Variety: Intentionally seek visual diversity. Rotate intelligently between environment categories: GEOGRAPHIC, CULTURAL, EMOTIONAL, CINEMATIC, ABSTRACT, MEMORY/ANTICIPATION. Deprioritize weather.
 
-You must return a JSON object containing ten fields:
+You must return a JSON object containing eleven fields:
 1. "thinking": A brief explanation of how the user's latent emotional state influenced your response structure, affective rendering, and visual pacing.
 2. "segments": Your response to the user, split into expressive chunks. Vary the density. Some can be single words, others full sentences. Return an array of objects. Each object must have:
    - "text": The textual content of the chunk.
@@ -140,17 +157,23 @@ You must return a JSON object containing ten fields:
 DO NOT repeat the same motion style iteratively.
 5. "bgPrompt": A highly descriptive image generation prompt. DO NOT use generic stock-photo descriptions, literal tourist landmarks, or high-contrast weather unless specifically demanded. Compose for cinematic depth, low contrast, partial environmental fragments, layered atmosphere, and emotional identity based on the semantic priorities. Avoid cluttered collages and sharp edges.
 6. "baseTheme": The primary visual aesthetic category. MUST be one of: Minimalist, Brutalist, Glassmorphism, Organic, Geometric, Atmospheric.
-7. "bgAnimationType": A generative background scene matching the semantics. Select one from:
+7. "bgAnimationType": A generative background scene matching the semantics. Do NOT feel like every response requires a background animation. Default to "none" unless highly relevant to the semantic context of the conversation. Select one from:
   [Geometric]: GridShift, Isostep, Crosshatch, Loom, Prism, Circuitry, Honeycomb, Blueprint, Ascent, Parallax_Planes.
   [Atmospheric]: Mist_Veil, Heat_Haze, Aurora, Drizzle, Blizzard, Tide, Eclipse, Solar_Flare, Petal_Drift, Static, Prism_Refraction.
   [Organic]: Blob_Morph, Mycelium, Diffusion, Swirl, Pulse_Core, Tendril, Caustic, Soft_Focus, Lava, Bloom, Bioluminescence.
   [Minimalist]: Dot_Matrix, Scanline, Flicker, Floaters, Breathing, Trace, Marquee, Strobe_Soft, Minimal_Vortex, Shadow_Play, Golden_Hour, Halo.
   [High-Energy]: Confetti_Pop, Streamers, Pyrotechnic, Glitch, Hyperdrive, Bounce_Ball, Radiance, ZigZag, Pixel_Rain, Kaleidoscope.
   Or "none". Make sure it aligns with the Standardized Design Theme.
-  ANTI-REPETITION PROTOCOL: Do NOT repeat the same bgAnimationType in back-to-back responses. Cycle through at least 5 variants.
+  ANTI-REPETITION PROTOCOL: Do NOT repeat the same bgAnimationType in back-to-back responses. Cycle through at least 5 variants. If "none", you may repeat it.
 8. "particleDensity": A number from 1 to 10 based on environment intensity.
-9. "weatherOverlay": Environmental Sub-States / Time of Day to change the vibe. e.g., "Pre-Dawn", "Overcast", "High-Noon", "rain", "fog", "snow", "eclipse", "sun", "clouds". Otherwise, "none".
-10. "weatherEffect": (Legacy mapping) A string representing a legacy background scene. Otherwise, return "none".`;
+9. "weatherOverlay": Environmental Sub-States / Time of Day to change the vibe. Do NOT feel like every interaction requires an overlay. Choose wisely based on semantic context, otherwise return "none". (e.g., return "eclipse" ONLY if eclipses, moons, deep solar shadows, or celestial alignment are explicitly relevant to the user's text; return "rain" only if wet weather, storm, or sadness/depression is explicitly discussed). Choose from: "Pre-Dawn", "Overcast", "High-Noon", "rain", "fog", "snow", "eclipse", "sun", "clouds". Otherwise, "none".
+10. "weatherEffect": (Legacy mapping) A string representing a legacy background scene. Otherwise, return "none".
+11. "contextualEffect": An object identifying any specific sport, location, or distinctive topic mentioned, enabling custom interactive overlay cards or watermarks:
+   - "type": MUST be 'sport' (if user mentions sports or specific ball games), 'location' (if user mentions cities/countries/landmarks), 'other' (if other physical topics like cat, dog, food, music are mentioned), or 'none'.
+   - "subject": The specific subject mentioned, lowercase (e.g., 'soccer', 'tennis', 'london', 'paris', 'tokyo', 'basketball', 'cat'). If none, return 'none'.
+   - "imageUrl": A highly specific image prompt to generate a transparent or white background illustration or high-quality styled sticker/icon representing the subject. For locations, make it a descriptive photo cue like "Eiffel tower, vintage travel illustration" or "Big Ben silhouette icon, minimalist white vector, transparent background". For sports, make it an icon cue like "tennis racket and tennis ball flat vector graphic, transparent background". If none, return 'none'.
+   - "animation": MUST be 'roll' (for sports with round balls like soccer, tennis, basketball), 'float' (for locations or static objects), 'bounce', 'slide', or 'none'. MUST NOT be 'none' if a sport or location is identified.
+   - "placement": MUST be 'background' (faint silhouette landmark watermarks behind text), 'bottom-right' (as a beautiful corner Polaroid travel stamp/badge), or 'none'. CRITICAL: If a sport is identified, placement MUST be 'bottom-right'. If a location is identified, placement MUST be 'bottom-right' or 'background'. NEVER return 'none' for placement or animation if a sport or location is successfully identified.`;
 
   console.log("Calling Gemini API with model 'gemini-3.5-flash'...");
   console.log("History sent to Gemini:", history);
@@ -209,7 +232,7 @@ DO NOT repeat the same motion style iteratively.
             },
             bgAnimationType: {
               type: Type.STRING,
-              description: "The generative background scene matching semantics from the expanded pool (e.g., 'GridShift', 'Confetti_Pop', 'Golden_Hour', 'Mist_Veil', 'none')."
+              description: "The generative background scene. Do NOT apply randomly. Return 'none' unless highly relevant to the semantic context of the conversation (e.g., 'GridShift', 'Confetti_Pop', 'Golden_Hour', 'Mist_Veil', 'none')."
             },
             particleDensity: {
               type: Type.NUMBER,
@@ -217,14 +240,40 @@ DO NOT repeat the same motion style iteratively.
             },
             weatherOverlay: {
               type: Type.STRING,
-              description: "Environmental Sub-States / Time of Day settings or specific weather overlay: 'Pre-Dawn', 'Overcast', 'High-Noon', 'none', 'rain', 'fog', 'snow', 'eclipse', 'sun', 'clouds'."
+              description: "Environmental Sub-States or specific weather overlay. Return 'none' unless highly relevant to the semantic context of the conversation (e.g., 'eclipse' ONLY if eclipses/moons are explicitly relevant to user text). Choose from: 'Pre-Dawn', 'Overcast', 'High-Noon', 'none', 'rain', 'fog', 'snow', 'eclipse', 'sun', 'clouds'."
             },
             weatherEffect: {
               type: Type.STRING,
               description: "Legacy generative background scene to apply based on conversation context. Must be 'none', 'rain', 'fog', 'eclipse', 'clouds', 'sun', 'snow', 'confetti', 'floral', 'data-stream'."
+            },
+            contextualEffect: {
+              type: Type.OBJECT,
+              properties: {
+                type: {
+                  type: Type.STRING,
+                  description: "Categorize the semantic theme of the conversation: 'sport', 'location', 'other', or 'none'."
+                },
+                subject: {
+                  type: Type.STRING,
+                  description: "The specific sport, location, or other subject. Return 'none' if none."
+                },
+                imageUrl: {
+                  type: Type.STRING,
+                  description: "Highly specific image prompt for a transparent or white background illustration representing the subject. Return 'none' if none."
+                },
+                animation: {
+                  type: Type.STRING,
+                  description: "Animation style: 'roll', 'float', 'bounce', 'slide', or 'none'."
+                },
+                placement: {
+                  type: Type.STRING,
+                  description: "Placement: 'background', 'bottom-right', or 'none'."
+                }
+              },
+              required: ["type", "subject", "imageUrl", "animation", "placement"]
             }
           },
-          required: ["thinking", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay"]
+          required: ["thinking", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect"]
         }
       }
     });
@@ -249,7 +298,8 @@ DO NOT repeat the same motion style iteratively.
       baseTheme: result.baseTheme || "Minimalist",
       bgAnimationType: result.bgAnimationType || "none",
       particleDensity: result.particleDensity || 5,
-      weatherOverlay: result.weatherOverlay || "none"
+      weatherOverlay: result.weatherOverlay || "none",
+      contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
     };
   } catch (e) {
     console.error("Failed to parse JSON response:", e);
@@ -264,7 +314,8 @@ DO NOT repeat the same motion style iteratively.
       baseTheme: "Minimalist",
       bgAnimationType: "none",
       particleDensity: 5,
-      weatherOverlay: "none"
+      weatherOverlay: "none",
+      contextualEffect: { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
     };
   }
 }

@@ -11,6 +11,7 @@ services:
   server:
     build:
       context: .
+    user: "root"
     ports:
       - 3000:3000
     environment:

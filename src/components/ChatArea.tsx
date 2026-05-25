@@ -1,10 +1,575 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Maximize2, List } from "lucide-react";
-import { ChatMessage, TextSegment } from "../lib/gemini";
+import { Send, Loader2 } from "lucide-react";
+import { ChatMessage, TextSegment, ContextualEffect } from "../lib/gemini";
 import { KineticWord } from "./KineticWord";
 import { FONTS } from "../lib/fonts";
 import { motion, AnimatePresence } from "motion/react";
 import { getLuminance, hexToRgb, getContrastRatio } from "../lib/wcag";
+
+interface ContextualEffectOverlayProps {
+  effect: ContextualEffect;
+  wcagStrictMode: boolean;
+  isTextLight: boolean;
+  backgroundOpacityScalar: number;
+}
+
+export function ContextualEffectOverlay({
+  effect,
+  wcagStrictMode,
+  isTextLight,
+  backgroundOpacityScalar,
+}: ContextualEffectOverlayProps) {
+  const { type, subject, imageUrl, animation, placement } = effect;
+
+  const getBallEmoji = (sub: string) => {
+    const s = sub.toLowerCase();
+    if (s.includes("soccer") || (s.includes("football") && !s.includes("american"))) return "⚽";
+    if (s.includes("tennis")) return "🎾";
+    if (s.includes("basketball")) return "🏀";
+    if (s.includes("baseball")) return "⚾";
+    if (s.includes("golf")) return "⛳";
+    if (s.includes("volleyball")) return "🏐";
+    if (s.includes("american football") || s.includes("rugby")) return "🏈";
+    return null;
+  };
+
+  const ballEmoji = getBallEmoji(subject);
+
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+      {/* 1. Ball Rolls and Stops 2/3 of the way across the screen behind the text */}
+      {animation === "roll" && ballEmoji && (
+        <motion.div
+          key={`roll-${subject}`}
+          initial={{ left: "-10%", top: "78%", rotate: 0, opacity: 0.8 }}
+          animate={{
+            left: "66%",
+            rotate: 720,
+            opacity: [0.8, 0.8, wcagStrictMode ? 0.08 : 0.15]
+          }}
+          transition={{
+            duration: 4.5,
+            ease: "easeOut",
+            times: [0, 0.82, 1] // Stays opaque while rolling, then fades to ultra-low watermark at rest
+          }}
+          style={{ transformOrigin: "center" }}
+          className="absolute text-8xl drop-shadow-sm filter select-none z-0"
+        >
+          {ballEmoji}
+        </motion.div>
+      )}
+      {/* 2. Watermarks and Badges have been removed to focus entirely on the animated rolling balls */}
+    </div>
+  );
+}
+
+interface GenerationAmbientLayerProps {
+  userMessageContent: string;
+  sentiment: number;
+  engagement: number;
+  wcagStrictMode: boolean;
+}
+
+export function GenerationAmbientLayer({
+  userMessageContent,
+  sentiment,
+  engagement,
+  wcagStrictMode,
+}: GenerationAmbientLayerProps) {
+  const content = userMessageContent.toLowerCase();
+
+  const getDetectedSport = (): string | null => {
+    if (content.includes("tennis") && !content.includes("table")) return "tennis";
+    if (content.includes("table tennis") || content.includes("ping pong")) return "table_tennis";
+    if (content.includes("basketball")) return "basketball";
+    if (content.includes("golf")) return "golf";
+    if (content.includes("american football") || content.includes("nfl") || (content.includes("football") && !content.includes("soccer"))) return "football";
+    if (content.includes("baseball")) return "baseball";
+    if (content.includes("soccer")) return "soccer";
+    if (content.includes("hockey") || content.includes("puck")) return "hockey";
+    if (content.includes("volleyball")) return "volleyball";
+    if (content.includes("bowling")) return "bowling";
+    if (content.includes("billiard") || content.includes("pool") || content.includes("cue ball")) return "billiards";
+    if (content.includes("running") || content.includes("run") || content.includes("sprint") || content.includes("jogging")) return "running";
+    if (content.includes("cycling") || content.includes("bike") || content.includes("bicycle")) return "cycling";
+    if (content.includes("skateboard") || content.includes("skateboarding")) return "skateboarding";
+    if (content.includes("surf") || content.includes("surfing") || content.includes("wave")) return "surfing";
+    if (content.includes("swimming") || content.includes("swim") || content.includes("ripple")) return "swimming";
+    if (content.includes("boxing") || content.includes("punch") || content.includes("glove")) return "boxing";
+    if (content.includes("archery") || content.includes("arrow")) return "archery";
+    if (content.includes("racing") || content.includes("race") || content.includes("f1") || content.includes("nascar")) return "racing";
+    if (content.includes("sailing") || content.includes("sailboat") || content.includes("boat")) return "sailing";
+    return null;
+  };
+
+  const sport = getDetectedSport();
+  if (!sport) return null;
+
+  const isAnalysis =
+    content.includes("analysis") ||
+    content.includes("strategy") ||
+    content.includes("tactic") ||
+    content.includes("formation") ||
+    content.includes("route") ||
+    content.includes("stats") ||
+    content.includes("statistics") ||
+    content.includes("playbook") ||
+    content.includes("diagram") ||
+    content.includes("coaching") ||
+    content.includes("breakdown");
+
+  const durationMultiplier = engagement <= 0 ? 1.6 : 0.75;
+  const isNegative = sentiment < 0;
+
+  const getBallEmoji = (s: string) => {
+    if (s === "soccer") return "⚽";
+    if (s === "tennis") return "🎾";
+    if (s === "basketball") return "🏀";
+    if (s === "baseball") return "⚾";
+    if (s === "golf") return "⛳";
+    if (s === "volleyball") return "🏐";
+    if (s === "football") return "🏈";
+    if (s === "bowling") return "🎳";
+    if (s === "hockey") return "🏒";
+    if (s === "table_tennis") return "🏓";
+    if (s === "billiards") return "🎱";
+    if (s === "boxing") return "🥊";
+    if (s === "archery") return "🏹";
+    if (s === "sailing") return "⛵";
+    if (s === "cycling") return "🚲";
+    if (s === "skateboarding") return "🛹";
+    return null;
+  };
+
+  const ballEmoji = getBallEmoji(sport);
+  const baseDuration = 4.5 * durationMultiplier;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: wcagStrictMode ? 0.05 : 0.12 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 1 }}
+      className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-transparent"
+    >
+      {isAnalysis ? (
+        // Tactical Sports Visualizations (Strategy diagrams drawing themselves)
+        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+          {sport === "basketball" && (
+            <svg viewBox="0 0 400 300" className="w-4/5 h-4/5 text-emerald-500/20 stroke-current fill-none stroke-2">
+              {/* Half Court Grid */}
+              <rect x="10" y="10" width="380" height="280" rx="4" strokeWidth="1" className="text-slate-700/20" />
+              <path d="M 10 150 L 390 150" strokeWidth="1" className="text-slate-700/20" />
+              <circle cx="200" cy="150" r="40" strokeWidth="1" className="text-slate-700/20" />
+              <path d="M 150 10 H 250 V 90 H 150 Z" strokeWidth="1" className="text-slate-700/20" />
+              <circle cx="200" cy="90" r="30" strokeWidth="1" className="text-slate-700/20" />
+              {/* Animated Shot Arc */}
+              <motion.path
+                d={isNegative ? "M 80 250 Q 150 120 180 180 T 200 90" : "M 80 240 Q 200 60 320 240"}
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                strokeWidth="3"
+                className="text-indigo-500/40"
+                strokeDasharray="6,4"
+              />
+              {/* Rest Spot / Release Guide */}
+              <motion.circle
+                cx="80"
+                cy={isNegative ? 250 : 240}
+                r="6"
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.2, 1] }}
+                transition={{ duration: 1, repeat: Infinity, repeatDelay: baseDuration - 1 }}
+                className="fill-indigo-500/30 stroke-indigo-400/40"
+              />
+            </svg>
+          )}
+
+          {sport === "football" && (
+            <svg viewBox="0 0 400 300" className="w-4/5 h-4/5 text-amber-500/20 stroke-current fill-none stroke-2">
+              {/* Tactical Yard Lines Grid */}
+              <line x1="20" y1="50" x2="380" y2="50" strokeWidth="1" className="text-slate-700/10" />
+              <line x1="20" y1="100" x2="380" y2="100" strokeWidth="1" className="text-slate-700/10" />
+              <line x1="20" y1="150" x2="380" y2="150" strokeWidth="1" className="text-slate-700/10" />
+              <line x1="20" y1="200" x2="380" y2="200" strokeWidth="1" className="text-slate-700/10" />
+              <line x1="20" y1="250" x2="380" y2="250" strokeWidth="1" className="text-slate-700/10" />
+              {/* Route line drawing itself with receiver cut */}
+              <motion.path
+                d={isNegative ? "M 50 250 L 50 120 L 90 140 L 150 90" : "M 200 270 L 200 150 L 320 80"}
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                strokeWidth="3.5"
+                className="text-amber-500/40"
+              />
+            </svg>
+          )}
+
+          {sport === "soccer" && (
+            <svg viewBox="0 0 400 300" className="w-4/5 h-4/5 text-emerald-500/20 stroke-current fill-none stroke-2">
+              {/* Center Circle & Penalty Box outline */}
+              <circle cx="200" cy="150" r="50" strokeWidth="1" className="text-slate-700/20" />
+              <rect x="80" y="10" width="240" height="80" strokeWidth="1" className="text-slate-700/20" />
+              {/* Formation markers repositioning themselves */}
+              <motion.circle
+                cx={isNegative ? 120 : 150}
+                cy={isNegative ? 180 : 130}
+                r="10"
+                animate={isNegative ? { cx: [120, 90, 120], cy: [180, 140, 180] } : { cx: [150, 180, 150], cy: [130, 90, 130] }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                className="fill-emerald-500/15 stroke-emerald-400/30"
+              />
+              <motion.circle
+                cx={isNegative ? 280 : 250}
+                cy={isNegative ? 180 : 130}
+                r="10"
+                animate={isNegative ? { cx: [280, 310, 280], cy: [180, 140, 180] } : { cx: [250, 220, 250], cy: [130, 90, 130] }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                className="fill-emerald-500/15 stroke-emerald-400/30"
+              />
+            </svg>
+          )}
+
+          {sport === "golf" && (
+            <svg viewBox="0 0 400 300" className="w-4/5 h-4/5 text-emerald-400/20 stroke-current fill-none stroke-2">
+              {/* Contour waves representing the putting green contour map */}
+              <path d="M 20 80 Q 200 40 380 80" strokeWidth="1" className="text-emerald-800/10" />
+              <path d="M 20 150 Q 200 110 380 150" strokeWidth="1" className="text-emerald-800/10" />
+              {/* Putting trajectory guide drawing itself */}
+              <motion.path
+                d={isNegative ? "M 100 240 C 130 180, 220 220, 280 120" : "M 80 250 Q 200 180 300 110"}
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                strokeWidth="2.5"
+                className="text-emerald-500/40"
+                strokeDasharray="5,5"
+              />
+            </svg>
+          )}
+
+          {sport === "racing" && (
+            <svg viewBox="0 0 400 300" className="w-4/5 h-4/5 text-red-500/20 stroke-current fill-none stroke-2">
+              {/* S-curve racing line tracing */}
+              <motion.path
+                d={isNegative ? "M 50 50 C 150 50, 100 250, 350 250" : "M 50 250 Q 200 100 350 250"}
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+                strokeWidth="3.5"
+                className={isNegative ? "text-rose-500/40" : "text-emerald-500/40"}
+              />
+            </svg>
+          )}
+        </div>
+      ) : (
+        // Ambient Physical Object Animations (1-3 objects floating elegantly behind text)
+        <div className="absolute inset-0 bg-transparent">
+          {/* Volleyball Float */}
+          {sport === "volleyball" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "85%", scale: 0.9, rotate: 0 }}
+              animate={{
+                left: "110%",
+                top: ["85%", "25%", "85%"],
+                rotate: 360,
+              }}
+              transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Basketball Parabolic Arc */}
+          {sport === "basketball" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "80%", scale: 1.0, rotate: 0 }}
+              animate={{
+                left: "110%",
+                top: ["80%", "20%", "80%"],
+                rotate: 360,
+              }}
+              transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-6xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Soccer Zigzag Dribbling */}
+          {sport === "soccer" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "85%", rotate: 0 }}
+              animate={{
+                left: ["-10%", "25%", "55%", "85%", "110%"],
+                top: isNegative
+                  ? ["85%", "65%", "88%", "60%", "85%"] // Erratic tense dribble
+                  : ["85%", "78%", "85%", "78%", "85%"], // Smooth rounded flow
+                rotate: 1440,
+              }}
+              transition={{ duration: baseDuration, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Tennis Ball Diagonal Bounce */}
+          {sport === "tennis" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "85%", rotate: 0 }}
+              animate={{
+                left: "110%",
+                top: isNegative
+                  ? ["85%", "40%", "75%", "35%", "85%"] // Sharp rebounds
+                  : ["85%", "35%", "70%", "30%"], // Smooth rounded bounce
+                rotate: 1080,
+              }}
+              transition={{ duration: baseDuration - 0.5, ease: "linear", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Golf Ball Putt */}
+          {sport === "golf" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "88%", rotate: 0 }}
+              animate={{
+                left: "110%",
+                rotate: 360,
+              }}
+              transition={{ duration: baseDuration + 2.5, ease: "easeOut", repeat: Infinity }}
+              className="absolute text-4xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* American Football Spiral Pass */}
+          {sport === "football" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "80%", rotate: 0 }}
+              animate={{
+                left: "110%",
+                top: ["80%", "32%", "80%"],
+                rotate: 720,
+              }}
+              transition={{ duration: baseDuration - 0.5, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-6xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Baseball Curveball Path */}
+          {sport === "baseball" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "65%", rotate: 0 }}
+              animate={{
+                left: "110%",
+                top: isNegative ? ["65%", "40%", "90%"] : ["65%", "55%", "80%"],
+                rotate: 1080,
+              }}
+              transition={{ duration: baseDuration - 1.0, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Hockey Puck Slide & Rebound */}
+          {sport === "hockey" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-10%", top: "92%" }}
+              animate={{
+                left: isNegative ? ["-10%", "100%", "70%", "100%", "-10%"] : ["-10%", "100%", "85%"],
+                top: "92%",
+              }}
+              transition={{ duration: baseDuration - 1.5, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-4xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Table Tennis Rally */}
+          {sport === "table_tennis" && ballEmoji && (
+            <motion.div
+              initial={{ left: "20%", top: "75%", scale: 1 }}
+              animate={{
+                left: ["20%", "50%", "80%", "50%", "20%"],
+                top: ["75%", "40%", "75%", "45%", "75%"],
+                scale: [1, 0.8, 1, 0.85, 1],
+              }}
+              transition={{ duration: baseDuration - 2.0, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Billiards soft boundary ricochet */}
+          {sport === "billiards" && ballEmoji && (
+            <motion.div
+              initial={{ left: "10%", top: "20%" }}
+              animate={{
+                left: ["10%", "90%", "65%", "10%"],
+                top: ["20%", "75%", "12%", "20%"],
+              }}
+              transition={{ duration: baseDuration + 1, ease: "linear", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Running Footprints Silhouette Steps */}
+          {sport === "running" && (
+            <div className="absolute bottom-6 left-0 right-0 h-10 flex justify-around">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <motion.span
+                  key={idx}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 0.8, 0] }}
+                  transition={{
+                    duration: 2.5,
+                    ease: "easeInOut",
+                    repeat: Infinity,
+                    delay: idx * 0.6,
+                  }}
+                  className="text-4xl select-none filter grayscale opacity-20"
+                >
+                  👣
+                </motion.span>
+              ))}
+            </div>
+          )}
+
+          {/* Cycling wheel crossing */}
+          {sport === "cycling" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-15%", top: "85%", rotate: 0 }}
+              animate={{
+                left: "115%",
+                rotate: 1440,
+              }}
+              transition={{ duration: baseDuration + 1.5, ease: "linear", repeat: Infinity }}
+              className="absolute text-6xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Skateboarding rolling and kickflip */}
+          {sport === "skateboarding" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-15%", top: "88%", rotate: 0 }}
+              animate={{
+                left: ["-15%", "50%", "50%", "115%"],
+                rotate: [0, 0, 360, 360],
+                top: ["88%", "88%", "68%", "88%"],
+              }}
+              transition={{ duration: baseDuration + 1, ease: "easeInOut", repeat: Infinity }}
+              className="absolute text-5xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Surfing gentle wave crest SVG */}
+          {sport === "surfing" && (
+            <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden flex items-end">
+              <svg viewBox="0 0 1440 320" className="w-full h-full text-sky-400/25 fill-current">
+                <motion.path
+                  animate={{
+                    d: [
+                      "M0,192L48,208C96,224,192,256,288,245.3C384,235,480,181,576,170.7C672,160,768,192,864,192C960,192,1056,160,1152,149.3C1248,139,1344,149,1392,154.7L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
+                      "M0,160L48,170.7C96,181,192,203,288,218.7C384,235,480,245,576,224C672,203,768,149,864,138.7C960,128,1056,160,1152,186.7C1248,213,1344,235,1392,245.3L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
+                      "M0,192L48,208C96,224,192,256,288,245.3C384,235,480,181,576,170.7C672,160,768,192,864,192C960,192,1056,160,1152,149.3C1248,139,1344,149,1392,154.7L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z",
+                    ],
+                  }}
+                  transition={{ duration: baseDuration + 3, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </svg>
+            </div>
+          )}
+
+          {/* Swimming expanding ripples */}
+          {sport === "swimming" && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ scale: 0.1, opacity: 0.6 }}
+                  animate={{ scale: 2.2, opacity: 0 }}
+                  transition={{
+                    duration: 3.5,
+                    ease: "easeOut",
+                    repeat: Infinity,
+                    delay: idx * 1.1,
+                  }}
+                  className="absolute w-44 h-44 rounded-full border border-sky-300/40"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Boxing glove quick jabs */}
+          {sport === "boxing" && ballEmoji && (
+            <motion.div
+              initial={{ right: "-20%", top: "45%", scale: 1.2 }}
+              animate={{
+                right: ["-20%", "15%", "-20%"],
+                top: ["45%", "40%", "45%"],
+              }}
+              transition={{ duration: baseDuration - 2.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 1 }}
+              className="absolute text-7xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Archery smooth arrow glide */}
+          {sport === "archery" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-15%", top: "45%" }}
+              animate={{
+                left: "115%",
+                top: ["45%", "43%", "45%"],
+              }}
+              transition={{ duration: baseDuration - 1.5, ease: "easeOut", repeat: Infinity }}
+              className="absolute text-6xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+
+          {/* Sailing Drifting Boat */}
+          {sport === "sailing" && ballEmoji && (
+            <motion.div
+              initial={{ left: "-15%", top: "78%" }}
+              animate={{
+                left: "115%",
+                y: [0, -6, 0],
+              }}
+              transition={{
+                left: { duration: baseDuration + 4, ease: "linear", repeat: Infinity },
+                y: { duration: 3, ease: "easeInOut", repeat: Infinity },
+              }}
+              className="absolute text-6xl select-none"
+            >
+              {ballEmoji}
+            </motion.div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 interface ChatAreaProps {
   messages: ChatMessage[];
@@ -16,7 +581,6 @@ interface ChatAreaProps {
   gradientColor2?: string;
   gradientDirection?: string;
   viewMode: "threaded" | "focus";
-  onViewModeChange: (mode: "threaded" | "focus") => void;
   conversationMode: boolean;
   messageInterval: number;
 }
@@ -31,7 +595,6 @@ export function ChatArea({
   gradientColor2 = "#ec4899",
   gradientDirection = "135deg",
   viewMode,
-  onViewModeChange,
   conversationMode,
   messageInterval,
 }: ChatAreaProps) {
@@ -51,6 +614,12 @@ export function ChatArea({
   const hasUserMessages = userMessages.length > 0;
   const latestAiMessage =
     aiMessages.length > 0 ? aiMessages[aiMessages.length - 1] : null;
+  const latestUserMessage =
+    userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
+  const messageHash = latestAiMessage?.content
+    ? latestAiMessage.content.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    : 0;
+  const showSunrise = messageHash % 3 === 0;
   const segments =
     latestAiMessage?.segments && latestAiMessage.segments.length > 0
       ? latestAiMessage.segments
@@ -164,7 +733,7 @@ export function ChatArea({
         contentOverride.fontVariant;
     }
 
-    let msgFontColor = message.fontColor || "#334155";
+    let msgFontColor = message.fontColor || "#ffffff";
     let effectiveBgColor = "#ffffff"; // Default to white
 
     // 1. Determine base background luminance
@@ -436,25 +1005,69 @@ export function ChatArea({
   const userMessagesToShow =
     viewMode === "focus" ? userMessages.slice(-1) : userMessages;
 
-  let effectiveFontColor = latestAiMessage?.fontColor || "#ffffff";
+  // 1. Calculate the background luminance (avgLum) exactly like the text scope
+  let avgLum = 1.0;
   if (bgType === "gradient" || (bgType === "image" && !bgPrompt)) {
     const rgb1 = hexToRgb(gradientColor1);
     const rgb2 = hexToRgb(gradientColor2);
-    const avgLum =
-      (getLuminance(rgb1.r, rgb1.g, rgb1.b) +
-        getLuminance(rgb2.r, rgb2.g, rgb2.b)) /
-      2;
-    const textRgb = hexToRgb(effectiveFontColor);
-    const textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
+    const avgR = Math.round((rgb1.r + rgb2.r) / 2);
+    const avgG = Math.round((rgb1.g + rgb2.g) / 2);
+    const avgB = Math.round((rgb1.b + rgb2.b) / 2);
+    avgLum = getLuminance(avgR, avgG, avgB);
+  } else if (bgType === "image" && bgPrompt) {
+    // Standard base image: starts light or dark based on message's fontColor
+    const startFontColor = latestAiMessage?.fontColor || "#ffffff";
+    const textRgb = hexToRgb(startFontColor);
+    const isTextLight = getLuminance(textRgb.r, textRgb.g, textRgb.b) > 0.5;
+    avgLum = isTextLight ? 0.1 : 0.9;
+  }
 
-    const brightest = Math.max(avgLum, textLum);
-    const darkest = Math.min(avgLum, textLum);
-    const ratio = (brightest + 0.05) / (darkest + 0.05);
-
-    if (ratio < 4.5) {
-      effectiveFontColor = avgLum > 0.5 ? "#0f172a" : "#ffffff";
+  // 2. Apply weather and generative overlay modifications
+  if (latestAiMessage) {
+    if (latestAiMessage.weatherOverlay === "eclipse") {
+      avgLum = 0.1;
+    } else if (
+      latestAiMessage.weatherOverlay === "fog" ||
+      latestAiMessage.weatherOverlay === "clouds" ||
+      latestAiMessage.weatherOverlay === "snow" ||
+      latestAiMessage.weatherOverlay === "sun"
+    ) {
+      avgLum = 0.9;
+    } else if (latestAiMessage.bgAnimationType === "data_grid") {
+      avgLum = 0.1;
+    } else if (latestAiMessage.weatherOverlay === "rain") {
+      avgLum = Math.max(0, avgLum - 0.1);
     }
   }
+
+  // 3. Contrast Check to find the final, true effective font color
+  let effectiveFontColor = latestAiMessage?.fontColor || "#ffffff";
+  const textRgb = hexToRgb(effectiveFontColor);
+  const textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
+
+  let requiredRatio = 4.5;
+  if (latestAiMessage) {
+    if (latestAiMessage.wcagLevel === "A") requiredRatio = 3.0;
+    if (latestAiMessage.wcagLevel === "AAA") requiredRatio = 7.0;
+  }
+
+  const brightest = Math.max(avgLum, textLum);
+  const darkest = Math.min(avgLum, textLum);
+  const ratio = (brightest + 0.05) / (darkest + 0.05);
+
+  if (
+    avgLum > 0.5 ||
+    ratio < requiredRatio ||
+    latestAiMessage?.weatherOverlay === "sun" ||
+    latestAiMessage?.weatherOverlay === "fog" ||
+    latestAiMessage?.weatherOverlay === "clouds" ||
+    latestAiMessage?.weatherOverlay === "snow" ||
+    latestAiMessage?.bgAnimationType === "confetti" ||
+    latestAiMessage?.bgAnimationType === "blooming_petals"
+  ) {
+    effectiveFontColor = avgLum > 0.5 ? "#1a1a1a" : "#ffffff";
+  }
+
   const effectiveRgb = hexToRgb(effectiveFontColor);
   const isTextLight =
     getLuminance(effectiveRgb.r, effectiveRgb.g, effectiveRgb.b) > 0.5;
@@ -467,27 +1080,11 @@ export function ChatArea({
 
   return (
     <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative min-h-0">
-      {/* View Mode Toggle */}
-      <button
-        onClick={() =>
-          onViewModeChange(viewMode === "threaded" ? "focus" : "threaded")
-        }
-        className="absolute top-4 right-4 z-50 p-2.5 bg-white/80 hover:bg-white backdrop-blur-md rounded-xl text-slate-700 shadow-sm border border-slate-200 transition-all"
-        title={
-          viewMode === "threaded"
-            ? "Switch to Focus Mode"
-            : "Switch to Threaded Mode"
-        }
-      >
-        {viewMode === "threaded" ? (
-          <Maximize2 className="w-5 h-5" />
-        ) : (
-          <List className="w-5 h-5" />
-        )}
-      </button>
-
       {/* AI Response Area (Top) */}
-      <div className="relative p-6 z-10 flex flex-col justify-center items-center bg-slate-900 flex-1 min-h-[150px] max-h-[400px] overflow-hidden">
+      <div 
+        className="relative p-6 z-10 flex flex-col justify-center items-center flex-1 min-h-[150px] max-h-[400px] overflow-hidden transition-colors duration-1000"
+        style={{ backgroundColor: containerBgColor }}
+      >
         {/* Environmental Scene & Background Image */}
         <div
           className={`absolute inset-0 z-0 transition-all duration-1000 ease-in-out pointer-events-none ${bgType === "gradient" || (bgType === "image" && !bgPrompt) ? "animate-gradient-bg" : ""}`}
@@ -500,12 +1097,9 @@ export function ChatArea({
               bgType === "image" && bgPrompt ? "cover" : undefined,
             backgroundPosition:
               bgType === "image" && bgPrompt ? "center" : undefined,
-            opacity: bgType === "image" && bgPrompt ? 0.35 : 1,
-            filter:
-              bgType === "image" && bgPrompt
-                ? "blur(6px) contrast(0.8) brightness(0.9)"
-                : "none",
-            transform: bgType === "image" && bgPrompt ? "scale(1.05)" : "none", // Prevent blurred edges from showing
+            opacity: 1, // Full sharp opacity to act as a complete, gorgeous painting/photo replacement
+            filter: "none", // No blur to maintain pristine visual resolution
+            transform: "none",
           }}
         />
 
@@ -514,7 +1108,7 @@ export function ChatArea({
           <div
             className="absolute inset-0 z-0 pointer-events-none transition-opacity duration-1000"
             style={{
-              background: `radial-gradient(circle at center, ${containerBgColor}cc 0%, ${containerBgColor}88 40%, transparent 100%)`,
+              background: `radial-gradient(circle at center, ${containerBgColor}e6 0%, ${containerBgColor}b3 50%, ${containerBgColor}22 100%)`,
               mixBlendMode: "normal",
             }}
           />
@@ -591,7 +1185,7 @@ export function ChatArea({
               ))}
             </motion.div>
           )}
-          {!isTyping && latestAiMessage?.weatherOverlay === "sun" && (
+           {!isTyping && latestAiMessage?.weatherOverlay === "sun" && showSunrise && (
             <motion.div
               key="sun"
               initial={{ opacity: 0 }}
@@ -828,6 +1422,28 @@ export function ChatArea({
           )}
         </AnimatePresence>
 
+        {/* Contextual Effects & Animations (Sports, Locations, etc.) */}
+        {!isTyping && latestAiMessage?.contextualEffect && latestAiMessage.contextualEffect.type !== "none" && (
+          <ContextualEffectOverlay
+            effect={latestAiMessage.contextualEffect}
+            wcagStrictMode={latestAiMessage.wcagStrictMode || false}
+            isTextLight={isTextLight}
+            backgroundOpacityScalar={backgroundOpacityScalar}
+          />
+        )}
+
+        {/* Subtle Ambient Generation Layer (only active while generating response) */}
+        <AnimatePresence>
+          {isTyping && latestUserMessage && (
+            <GenerationAmbientLayer
+              userMessageContent={latestUserMessage.content}
+              sentiment={latestUserMessage.sentiment ?? 0}
+              engagement={latestUserMessage.engagement ?? 0}
+              wcagStrictMode={latestAiMessage?.wcagStrictMode || false}
+            />
+          )}
+        </AnimatePresence>
+
         <div className="relative z-10 flex flex-col h-full justify-center w-full">
           <AnimatePresence mode="wait">
             {!isTyping && latestAiMessage ? (
@@ -934,7 +1550,7 @@ export function ChatArea({
       </div>
 
       {/* System Thinking Area (Middle) */}
-      {(latestAiMessage || isTyping) && (
+      {(latestAiMessage || isTyping) && hasUserMessages && (
         <div className="shrink-0 z-20 w-full">
           <div className="w-full -mt-[35px] relative z-20">
             <div className="flex space-x-2 px-6 mb-0 relative z-20">

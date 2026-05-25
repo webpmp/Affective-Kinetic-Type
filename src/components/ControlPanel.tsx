@@ -48,6 +48,8 @@ interface ControlPanelProps {
   onConversationModeChange: (val: boolean) => void;
   messageInterval: number;
   onMessageIntervalChange: (val: number) => void;
+  isOfflineMode: boolean;
+  onOfflineModeChange: (val: boolean) => void;
 }
 
 import { FONTS } from '../lib/fonts';
@@ -97,6 +99,8 @@ export function ControlPanel({
   onConversationModeChange,
   messageInterval,
   onMessageIntervalChange,
+  isOfflineMode,
+  onOfflineModeChange,
 }: ControlPanelProps) {
 
   const [sections, setSections] = useState({
@@ -182,13 +186,44 @@ export function ControlPanel({
   return (
     <div className={`bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full ${isStacked ? 'bg-transparent border-none shadow-none' : ''}`}>
       {!isStacked && (
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-slate-500" />
-          <h2 className="font-semibold text-slate-800">Control Panel</h2>
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-slate-500" />
+            <h2 className="font-semibold text-slate-800">Control Panel</h2>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg border border-amber-200 transition-colors">
+            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider select-none">Simulate Offline</span>
+            <input
+              type="checkbox"
+              checked={isOfflineMode}
+              onChange={(e) => onOfflineModeChange(e.target.checked)}
+              className="rounded text-amber-600 w-3.5 h-3.5 cursor-pointer focus:ring-0"
+            />
+          </label>
         </div>
       )}
 
       <div className={containerClasses}>
+        {/* Offline Simulation Card (visible only in stacked layout) */}
+        {isStacked && (
+          <section className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-5 min-w-[220px] max-w-[220px] shrink-0 h-full flex flex-col justify-between">
+            <div className="space-y-1">
+              <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Simulation Mode</h3>
+              <p className="text-[10px] text-amber-600 leading-normal">
+                Test kinetic animations, tactical diagrams, and WCAG contrast offline without hits.
+              </p>
+            </div>
+            <label className="flex items-center justify-between gap-2 cursor-pointer bg-white hover:bg-amber-100/50 px-3 py-2 rounded-lg border border-amber-200 transition-colors mt-4">
+              <span className="text-xs font-semibold text-amber-800 select-none">Offline Mode</span>
+              <input
+                type="checkbox"
+                checked={isOfflineMode}
+                onChange={(e) => onOfflineModeChange(e.target.checked)}
+                className="rounded text-amber-600 w-4 h-4 cursor-pointer focus:ring-0"
+              />
+            </label>
+          </section>
+        )}
         
         {/* 1. Affective State */}
         <section className={cardClasses}>

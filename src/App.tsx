@@ -5,7 +5,7 @@ import { ChatMessage, generateResponse } from './lib/gemini';
 import { DECORATION_POOL } from './lib/decorations';
 import { ANIMATION_POOL } from './lib/animations';
 import { FONTS } from './lib/fonts';
-import { Activity, LayoutTemplate } from 'lucide-react';
+import { Activity, LayoutTemplate, Maximize2, List } from 'lucide-react';
 
 export default function App() {
   const [sentiment, setSentiment] = useState(0);
@@ -22,7 +22,7 @@ export default function App() {
   const [age, setAge] = useState(30);
   const [sex, setSex] = useState('Neutral');
   const [activeDecorations, setActiveDecorations] = useState<string[]>(
-    DECORATION_POOL.map(d => d.id).filter(id => !['lt-solid', 'lt-wavy', 'ts-sharp', 'lt-red'].includes(id))
+    DECORATION_POOL.map(d => d.id).filter(id => !id.startsWith('lt-') && id !== 'ts-sharp')
   );
   
   const [activeAnimations, setActiveAnimations] = useState<string[]>(ANIMATION_POOL.map(a => a.id));
@@ -42,6 +42,7 @@ export default function App() {
   const [gradientColor2, setGradientColor2] = useState('#2432ff');
   const [gradientDirection, setGradientDirection] = useState('135deg');
   const [weatherContext, setWeatherContext] = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -141,15 +142,221 @@ export default function App() {
     setIsTyping(true);
 
     try {
-      const { text: aiText, segments, keywords, thinking, motionStyle, bgPrompt: newBgPrompt, weatherEffect, baseTheme, bgAnimationType, particleDensity, weatherOverlay } = await generateResponse(
-        [...messages, userMessage], 
-        sentiment, 
-        engagement,
-        age,
-        sex,
-        enabledFonts
-      );
-      
+      let aiText = "";
+      let segments: any[] = [];
+      let keywords: any[] = [];
+      let thinking = "";
+      let motionStyle = "default";
+      let newBgPrompt = "";
+      let weatherEffect: any = "none";
+      let baseTheme = "Minimalist";
+      let bgAnimationType = "none";
+      let particleDensity = 5;
+      let weatherOverlay = "none";
+      let contextualEffect: any = { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" };
+
+      if (isOfflineMode) {
+        // Generate a rich, topic-aware simulated response instantly!
+        await new Promise(resolve => setTimeout(resolve, 1200)); // simulate thinking latency
+        const lower = text.toLowerCase();
+        
+        let type: 'sport' | 'location' | 'other' | 'none' = 'none';
+        let subject = 'none';
+        let imageUrl = 'none';
+        let animation: 'roll' | 'float' | 'bounce' | 'slide' | 'none' = 'none';
+        let placement: 'background' | 'bottom-right' | 'none' = 'none';
+
+        if (lower.includes('soccer') || lower.includes('football')) {
+          type = 'sport';
+          subject = lower.includes('soccer') ? 'soccer' : 'football';
+          imageUrl = 'soccer ball flat minimalist vector graphic, transparent background';
+          animation = 'roll';
+          placement = 'bottom-right';
+        } else if (lower.includes('basketball')) {
+          type = 'sport';
+          subject = 'basketball';
+          imageUrl = 'orange basketball flat minimalist vector graphic, transparent background';
+          animation = 'roll';
+          placement = 'bottom-right';
+        } else if (lower.includes('tennis')) {
+          type = 'sport';
+          subject = 'tennis';
+          imageUrl = 'tennis ball flat minimalist vector graphic, transparent background';
+          animation = 'roll';
+          placement = 'bottom-right';
+        } else if (lower.includes('baseball')) {
+          type = 'sport';
+          subject = 'baseball';
+          imageUrl = 'baseball flat minimalist vector graphic, transparent background';
+          animation = 'roll';
+          placement = 'bottom-right';
+        } else if (lower.includes('london') || lower.includes('big ben')) {
+          type = 'location';
+          subject = 'london';
+          imageUrl = 'Big Ben clock tower silhouette vector, minimalist white, transparent background';
+          animation = 'float';
+          placement = 'background';
+        } else if (lower.includes('paris') || lower.includes('eiffel')) {
+          type = 'location';
+          subject = 'paris';
+          imageUrl = 'Eiffel tower silhouette vector, minimalist white, transparent background';
+          animation = 'float';
+          placement = 'background';
+        } else if (lower.includes('tokyo') || lower.includes('fuji')) {
+          type = 'location';
+          subject = 'tokyo';
+          imageUrl = 'Mount fuji minimalist art illustration, transparent background';
+          animation = 'float';
+          placement = 'background';
+        } else if (lower.includes('cat') || lower.includes('dog') || lower.includes('pet')) {
+          type = 'other';
+          subject = lower.includes('cat') ? 'cat' : 'dog';
+          imageUrl = 'minimalist cute pet line art vector, transparent background';
+          animation = 'bounce';
+          placement = 'bottom-right';
+        }
+
+        const isPos = sentiment >= 0;
+        const isHigh = engagement >= 0;
+
+        if (type === 'sport') {
+          aiText = `Ah, ${subject}! There is a pure, geometric energy to playing and strategizing. The bounce, the pace, the focus—it defines motion. Are you analyzing play tactics or hitting the court?`;
+          segments = [
+            { text: `Ah, ${subject}!`, scale: "large", alignment: "left", fontVariant: enabledFonts[0] || "Inter" },
+            { text: "There is a pure, geometric energy to playing and strategizing.", scale: "normal", alignment: "center", fontVariant: enabledFonts[0] || "Inter" },
+            { text: "The bounce, the pace, the focus—it defines motion.", scale: "oversized", alignment: "right", fontVariant: enabledFonts[0] || "Inter" }
+          ];
+          keywords = [
+            { word: "geometric energy" },
+            { word: "defines motion" }
+          ];
+          thinking = `Offline Simulation Mode: Generated rich response for sport topic '${subject}'.`;
+          motionStyle = isHigh ? "bounce" : "sway";
+          newBgPrompt = `Minimalist athletic concept with clean geometric lines and soft background shadows, 8k`;
+          baseTheme = "Geometric";
+        } else if (type === 'location') {
+          aiText = `Traveling to ${subject} is an immersive experience. The architecture, the atmosphere, and the memories paint a scenic story. What draws you to visit this beautiful place?`;
+          segments = [
+            { text: `Traveling to ${subject}`, scale: "large", alignment: "left", fontVariant: enabledFonts[1] || "Playfair Display" },
+            { text: "is an immersive experience.", scale: "normal", alignment: "left", fontVariant: enabledFonts[1] || "Playfair Display" },
+            { text: "The architecture, the atmosphere, and the memories paint a scenic story.", scale: "normal", alignment: "center", fontVariant: enabledFonts[0] || "Inter" }
+          ];
+          keywords = [
+            { word: "immersive experience" },
+            { word: "scenic story" }
+          ];
+          thinking = `Offline Simulation Mode: Generated rich response for location '${subject}'.`;
+          motionStyle = "float";
+          newBgPrompt = `Poetic cinematically soft watercolor illustration of ${subject}, misty skies, low contrast`;
+          baseTheme = "Atmospheric";
+        } else {
+          if (isPos && isHigh) {
+            aiText = "That is absolutely fantastic! The vibrant energy and bright enthusiasm carry a clean, expanding rhythm. Let's keep this momentum going forward!";
+            segments = [
+              { text: "That is absolutely fantastic!", scale: "large", alignment: "center", fontVariant: enabledFonts[0] || "Inter" },
+              { text: "The vibrant energy and bright enthusiasm carry a clean, expanding rhythm.", scale: "normal", alignment: "center", fontVariant: enabledFonts[0] || "Inter" }
+            ];
+            keywords = [{ word: "absolutely fantastic!" }, { word: "vibrant energy" }];
+            motionStyle = "bounce";
+            baseTheme = "Organic";
+          } else if (!isPos && isHigh) {
+            aiText = "I hear the tension and stress in your words. The visual pressure feels tight, staggered, and urgent. Let's slow down and find a steady ground together.";
+            segments = [
+              { text: "I hear the tension and stress in your words.", scale: "normal", alignment: "left", fontVariant: enabledFonts[2] || "JetBrains Mono" },
+              { text: "The visual pressure feels tight, staggered, and urgent.", scale: "normal", alignment: "left", fontVariant: enabledFonts[2] || "JetBrains Mono" }
+            ];
+            keywords = [{ word: "visual pressure" }, { word: "tension and stress" }];
+            motionStyle = "glitch";
+            baseTheme = "Brutalist";
+          } else if (!isPos && !isHigh) {
+            aiText = "I sense a quiet, drifting weariness. The phrases sink slowly and gently, mirroring the quiet weight. Speak softly, and take all the time you need.";
+            segments = [
+              { text: "I sense a quiet, drifting weariness.", scale: "normal", alignment: "center", fontVariant: enabledFonts[1] || "Playfair Display" },
+              { text: "Speak softly, and take all the time you need.", scale: "small", alignment: "center", fontVariant: enabledFonts[1] || "Playfair Display" }
+            ];
+            keywords = [{ word: "drifting weariness" }];
+            motionStyle = "sink";
+            baseTheme = "Atmospheric";
+          } else {
+            aiText = "A calm, peaceful silence surrounds us. The rhythm is smooth, breathing, and balanced. Let the words float gently in the golden light.";
+            segments = [
+              { text: "A calm, peaceful silence surrounds us.", scale: "large", alignment: "center", fontVariant: enabledFonts[1] || "Playfair Display" },
+              { text: "Let the words float gently in the golden light.", scale: "normal", alignment: "center", fontVariant: enabledFonts[0] || "Inter" }
+            ];
+            keywords = [{ word: "peaceful silence" }];
+            motionStyle = "breathe";
+            baseTheme = "Minimalist";
+          }
+          thinking = `Offline Simulation Mode: Generated custom emotional response for sentiment: ${sentiment}, engagement: ${engagement}`;
+        }
+
+        // --- Context-Aware Visual Background Scene Selector ---
+        // Ensure backgrounds are not applied randomly but reflect actual semantic conversation context!
+        bgAnimationType = "none";
+        weatherOverlay = "none";
+
+        if (lower.includes("eclipse") || lower.includes("space") || lower.includes("moon") || lower.includes("solar") || lower.includes("cosmic") || lower.includes("astronomy")) {
+          bgAnimationType = "Scanline";
+          weatherOverlay = "eclipse";
+        } else if (lower.includes("rain") || lower.includes("drizzle") || lower.includes("storm") || lower.includes("wet") || lower.includes("sad") || lower.includes("depressed") || lower.includes("weariness")) {
+          bgAnimationType = "Drizzle";
+          weatherOverlay = "rain";
+        } else if (lower.includes("snow") || lower.includes("blizzard") || lower.includes("winter") || lower.includes("cold") || lower.includes("freeze") || lower.includes("ice")) {
+          bgAnimationType = "none";
+          weatherOverlay = "snow";
+        } else if (lower.includes("fog") || lower.includes("mist") || lower.includes("haze") || lower.includes("obscure")) {
+          bgAnimationType = "Mist_Veil";
+          weatherOverlay = "fog";
+        } else if (lower.includes("cloud") || lower.includes("overcast") || lower.includes("gloomy")) {
+          bgAnimationType = "none";
+          weatherOverlay = "clouds";
+        } else if (lower.includes("sun") || lower.includes("sunny") || lower.includes("summer") || lower.includes("bright") || lower.includes("warm")) {
+          bgAnimationType = "Golden_Hour";
+          weatherOverlay = "sun";
+        } else if (lower.includes("celebrate") || lower.includes("congratulate") || lower.includes("win") || lower.includes("success") || lower.includes("fantastic") || lower.includes("yay") || lower.includes("hooray")) {
+          bgAnimationType = "confetti";
+          weatherOverlay = "none";
+        } else if (lower.includes("nature") || lower.includes("flower") || lower.includes("garden") || lower.includes("bloom") || lower.includes("spring") || lower.includes("petal")) {
+          bgAnimationType = "blooming_petals";
+          weatherOverlay = "none";
+        } else if (lower.includes("code") || lower.includes("data") || lower.includes("matrix") || lower.includes("computer") || lower.includes("digital") || lower.includes("tech") || lower.includes("terminal")) {
+          bgAnimationType = "data_grid";
+          weatherOverlay = "none";
+        } else if (lower.includes("aurora") || lower.includes("northern lights") || lower.includes("magic")) {
+          bgAnimationType = "Aurora";
+          weatherOverlay = "none";
+        } else if (type === "sport") {
+          bgAnimationType = "GridShift";
+          weatherOverlay = "none";
+        } else if (type === "location") {
+          bgAnimationType = "Mist_Veil";
+          weatherOverlay = "Overcast";
+        }
+
+        contextualEffect = { type, subject, imageUrl, animation, placement };
+      } else {
+        const response = await generateResponse(
+          [...messages, userMessage], 
+          sentiment, 
+          engagement,
+          age,
+          sex,
+          enabledFonts
+        );
+        aiText = response.text;
+        segments = response.segments;
+        keywords = response.keywords;
+        thinking = response.thinking;
+        motionStyle = response.motionStyle;
+        newBgPrompt = response.bgPrompt;
+        weatherEffect = response.weatherEffect;
+        baseTheme = response.baseTheme;
+        bgAnimationType = response.bgAnimationType;
+        particleDensity = response.particleDensity;
+        weatherOverlay = response.weatherOverlay;
+        contextualEffect = response.contextualEffect;
+      }
+
       if (newBgPrompt) {
         setBgPrompt(newBgPrompt);
       }
@@ -179,13 +386,66 @@ export default function App() {
         baseTheme,
         bgAnimationType,
         particleDensity,
-        weatherOverlay
+        weatherOverlay,
+        contextualEffect
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating response:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I encountered an error processing your request." }]);
+      const isRateLimit = error && (
+        error.status === 429 || 
+        (error.message && error.message.includes('429')) || 
+        (error.message && error.message.toLowerCase().includes('quota')) ||
+        (error.message && error.message.toLowerCase().includes('rate limit')) ||
+        (error.message && error.message.toLowerCase().includes('resource_exhausted'))
+      );
+
+      const errorMessage = isRateLimit 
+        ? "We are experiencing a temporary rush of thoughts! Please wait about 15-20 seconds before your next message so the AI can catch its breath. 🌬️"
+        : "I'm sorry, I encountered an error processing your request.";
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: errorMessage,
+        segments: [
+          { 
+            text: errorMessage, 
+            scale: "large", 
+            alignment: "center", 
+            fontVariant: enabledFonts[0] || "Inter" 
+          }
+        ],
+        emphasizedWords: isRateLimit ? [{ word: "rush of thoughts!" }] : [],
+        thinking: "The API returned a rate limit (429) or other request error, showing fallback message.",
+        motionStyle: "drift-down",
+        sentiment: -0.3,
+        engagement: -0.2,
+        fontSize,
+        fontColor: isRateLimit ? "#f43f5e" : fontColor,
+        activeDecorations: [],
+        activeAnimations: [],
+        emotionInfluence,
+        animationIntensity,
+        maxAnimatedKeywords: 1,
+        animationStability: true,
+        wcagLevel,
+        wcagStrictMode,
+        age,
+        sex,
+        weatherEffect: "none",
+        baseTheme: "Minimalist",
+        bgAnimationType: "none",
+        particleDensity: 2,
+        weatherOverlay: "none",
+        contextualEffect: {
+          type: "none",
+          subject: "none",
+          imageUrl: "none",
+          animation: "none",
+          placement: "none"
+        }
+      }]);
     } finally {
       setIsTyping(false);
     }
@@ -193,65 +453,6 @@ export default function App() {
 
   const handleViewModeChange = async (newMode: 'threaded' | 'focus') => {
     setViewMode(newMode);
-    
-    // Find the last user message to regenerate the response
-    const lastUserIndex = messages.map(m => m.role).lastIndexOf('user');
-    if (lastUserIndex !== -1) {
-      // Keep messages up to the last user message
-      const previousMessages = messages.slice(0, lastUserIndex + 1);
-      setMessages(previousMessages);
-      setIsTyping(true);
-
-      try {
-        const { text: aiText, segments, keywords, thinking, motionStyle, bgPrompt: newBgPrompt, weatherEffect, baseTheme, bgAnimationType, particleDensity, weatherOverlay } = await generateResponse(
-          previousMessages, 
-          sentiment, 
-          engagement,
-          age,
-          sex,
-          enabledFonts
-        );
-        
-        if (newBgPrompt) {
-          setBgPrompt(newBgPrompt);
-        }
-
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: aiText,
-          segments: segments,
-          emphasizedWords: keywords,
-          thinking: thinking,
-          motionStyle: motionStyle,
-          sentiment,
-          engagement,
-          fontSize,
-          fontColor,
-          activeDecorations,
-          activeAnimations,
-          emotionInfluence,
-          animationIntensity,
-          maxAnimatedKeywords,
-          animationStability,
-          wcagLevel,
-          wcagStrictMode,
-          age,
-          sex,
-          weatherEffect,
-          baseTheme,
-          bgAnimationType,
-          particleDensity,
-          weatherOverlay
-        };
-
-        setMessages(prev => [...prev, assistantMessage]);
-      } catch (error) {
-        console.error("Error generating response:", error);
-        setMessages(prev => [...prev, { role: 'assistant', content: "I'm sorry, I encountered an error processing your request." }]);
-      } finally {
-        setIsTyping(false);
-      }
-    }
   };
 
   return (
@@ -267,13 +468,32 @@ export default function App() {
             <p className="text-sm text-slate-500 font-medium">Adaptive AI Communication Interface</p>
           </div>
         </div>
-        <button
-          onClick={() => setLayoutMode(prev => prev === 'side' ? 'stacked' : 'side')}
-          className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-          title="Toggle Layout"
-        >
-          <LayoutTemplate className="w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setViewMode(prev => prev === 'threaded' ? 'focus' : 'threaded')}
+            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 min-w-[80px]"
+            title={viewMode === 'threaded' ? 'Switch to Presentation Mode' : 'Switch to Designer Mode'}
+          >
+            {viewMode === 'threaded' ? (
+              <Maximize2 className="w-5 h-5" />
+            ) : (
+              <List className="w-5 h-5" />
+            )}
+            <span className="text-[9px] font-bold tracking-wider uppercase leading-none mt-0.5">
+              {viewMode === 'threaded' ? 'Presentation Mode' : 'Designer Mode'}
+            </span>
+          </button>
+          <button
+            onClick={() => setLayoutMode(prev => prev === 'side' ? 'stacked' : 'side')}
+            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 min-w-[80px]"
+            title="Toggle Layout"
+          >
+            <LayoutTemplate className="w-5 h-5" />
+            <span className="text-[9px] font-bold tracking-wider uppercase leading-none mt-0.5">
+              Toggle Layout
+            </span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -324,6 +544,8 @@ export default function App() {
               onConversationModeChange={setConversationMode}
               messageInterval={messageInterval}
               onMessageIntervalChange={setMessageInterval}
+              isOfflineMode={isOfflineMode}
+              onOfflineModeChange={setIsOfflineMode}
             />
           </div>
         )}
@@ -340,7 +562,6 @@ export default function App() {
             gradientColor2={gradientColor2}
             gradientDirection={gradientDirection}
             viewMode={viewMode}
-            onViewModeChange={handleViewModeChange}
             conversationMode={conversationMode}
             messageInterval={messageInterval}
           />
