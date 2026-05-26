@@ -80,26 +80,29 @@ export function GenerationAmbientLayer({
   const content = userMessageContent.toLowerCase();
 
   const getDetectedSport = (): string | null => {
-    if (content.includes("tennis") && !content.includes("table")) return "tennis";
-    if (content.includes("table tennis") || content.includes("ping pong")) return "table_tennis";
-    if (content.includes("basketball")) return "basketball";
-    if (content.includes("golf")) return "golf";
-    if (content.includes("american football") || content.includes("nfl") || (content.includes("football") && !content.includes("soccer"))) return "football";
-    if (content.includes("baseball")) return "baseball";
-    if (content.includes("soccer")) return "soccer";
-    if (content.includes("hockey") || content.includes("puck")) return "hockey";
-    if (content.includes("volleyball")) return "volleyball";
-    if (content.includes("bowling")) return "bowling";
-    if (content.includes("billiard") || content.includes("pool") || content.includes("cue ball")) return "billiards";
-    if (content.includes("running") || content.includes("run") || content.includes("sprint") || content.includes("jogging")) return "running";
-    if (content.includes("cycling") || content.includes("bike") || content.includes("bicycle")) return "cycling";
-    if (content.includes("skateboard") || content.includes("skateboarding")) return "skateboarding";
-    if (content.includes("surf") || content.includes("surfing") || content.includes("wave")) return "surfing";
-    if (content.includes("swimming") || content.includes("swim") || content.includes("ripple")) return "swimming";
-    if (content.includes("boxing") || content.includes("punch") || content.includes("glove")) return "boxing";
-    if (content.includes("archery") || content.includes("arrow")) return "archery";
-    if (content.includes("racing") || content.includes("race") || content.includes("f1") || content.includes("nascar")) return "racing";
-    if (content.includes("sailing") || content.includes("sailboat") || content.includes("boat")) return "sailing";
+    const hasWord = (...words: string[]) => 
+      words.some(word => new RegExp(`\\b${word}\\b`, 'i').test(content));
+
+    if (hasWord("tennis") && !hasWord("table")) return "tennis";
+    if (hasWord("table tennis", "ping pong")) return "table_tennis";
+    if (hasWord("basketball")) return "basketball";
+    if (hasWord("golf")) return "golf";
+    if (hasWord("american football", "nfl") || (hasWord("football") && !hasWord("soccer"))) return "football";
+    if (hasWord("baseball")) return "baseball";
+    if (hasWord("soccer")) return "soccer";
+    if (hasWord("hockey", "puck", "pucks")) return "hockey";
+    if (hasWord("volleyball")) return "volleyball";
+    if (hasWord("bowling")) return "bowling";
+    if (hasWord("billiard", "billiards", "pool", "cue ball")) return "billiards";
+    if (hasWord("running", "run", "runner", "runners", "sprint", "jogging", "jog")) return "running";
+    if (hasWord("cycling", "bike", "bicycle", "bikes", "bicycles")) return "cycling";
+    if (hasWord("skateboard", "skateboarding")) return "skateboarding";
+    if (hasWord("surf", "surfing", "wave", "waves")) return "surfing";
+    if (hasWord("swimming", "swim", "ripple", "ripples")) return "swimming";
+    if (hasWord("boxing", "punch", "glove", "gloves")) return "boxing";
+    if (hasWord("archery", "arrow", "arrows")) return "archery";
+    if (hasWord("racing", "race", "f1", "nascar")) return "racing";
+    if (hasWord("sailing", "sailboat", "boat", "boats")) return "sailing";
     return null;
   };
 

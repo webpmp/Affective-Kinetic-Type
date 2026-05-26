@@ -159,6 +159,8 @@ export default function App() {
         // Generate a rich, topic-aware simulated response instantly!
         await new Promise(resolve => setTimeout(resolve, 1200)); // simulate thinking latency
         const lower = text.toLowerCase();
+        const hasWord = (...words: string[]) => 
+          words.some(word => new RegExp(`\\b${word}\\b`, 'i').test(lower));
         
         let type: 'sport' | 'location' | 'other' | 'none' = 'none';
         let subject = 'none';
@@ -208,9 +210,9 @@ export default function App() {
           imageUrl = 'Mount fuji minimalist art illustration, transparent background';
           animation = 'float';
           placement = 'background';
-        } else if (lower.includes('cat') || lower.includes('dog') || lower.includes('pet')) {
+        } else if (hasWord('cat', 'cats', 'dog', 'dogs', 'pet', 'pets')) {
           type = 'other';
-          subject = lower.includes('cat') ? 'cat' : 'dog';
+          subject = hasWord('cat', 'cats') ? 'cat' : 'dog';
           imageUrl = 'minimalist cute pet line art vector, transparent background';
           animation = 'bounce';
           placement = 'bottom-right';
@@ -295,34 +297,34 @@ export default function App() {
         bgAnimationType = "none";
         weatherOverlay = "none";
 
-        if (lower.includes("eclipse") || lower.includes("space") || lower.includes("moon") || lower.includes("solar") || lower.includes("cosmic") || lower.includes("astronomy")) {
+        if (hasWord("eclipse", "space", "moon", "solar", "cosmic", "astronomy")) {
           bgAnimationType = "Scanline";
           weatherOverlay = "eclipse";
-        } else if (lower.includes("rain") || lower.includes("drizzle") || lower.includes("storm") || lower.includes("wet") || lower.includes("sad") || lower.includes("depressed") || lower.includes("weariness")) {
+        } else if (hasWord("rain", "rainy", "raining", "rains", "drizzle", "drizzling", "storm", "stormy", "wet", "sad", "sadness", "sadly", "depressed", "depression", "depressing", "weariness", "weary")) {
           bgAnimationType = "Drizzle";
           weatherOverlay = "rain";
-        } else if (lower.includes("snow") || lower.includes("blizzard") || lower.includes("winter") || lower.includes("cold") || lower.includes("freeze") || lower.includes("ice")) {
+        } else if (hasWord("snow", "snowy", "snowing", "snowfall", "blizzard", "winter", "cold", "colder", "coldest", "freeze", "freezing", "frozen", "ice", "icy")) {
           bgAnimationType = "none";
           weatherOverlay = "snow";
-        } else if (lower.includes("fog") || lower.includes("mist") || lower.includes("haze") || lower.includes("obscure")) {
+        } else if (hasWord("fog", "foggy", "mist", "misty", "haze", "hazy", "obscure", "obscured")) {
           bgAnimationType = "Mist_Veil";
           weatherOverlay = "fog";
-        } else if (lower.includes("cloud") || lower.includes("overcast") || lower.includes("gloomy")) {
+        } else if (hasWord("cloud", "clouds", "cloudy", "overcast", "gloomy", "gloom")) {
           bgAnimationType = "none";
           weatherOverlay = "clouds";
-        } else if (lower.includes("sun") || lower.includes("sunny") || lower.includes("summer") || lower.includes("bright") || lower.includes("warm")) {
+        } else if (hasWord("sun", "sunny", "sunshine", "summer", "bright", "brighter", "warm", "warmer", "warmth")) {
           bgAnimationType = "Golden_Hour";
           weatherOverlay = "sun";
-        } else if (lower.includes("celebrate") || lower.includes("congratulate") || lower.includes("win") || lower.includes("success") || lower.includes("fantastic") || lower.includes("yay") || lower.includes("hooray")) {
+        } else if (hasWord("celebrate", "celebrating", "celebration", "congratulate", "congratulations", "win", "winner", "winning", "wins", "success", "successful", "successfully", "fantastic", "yay", "hooray")) {
           bgAnimationType = "confetti";
           weatherOverlay = "none";
-        } else if (lower.includes("nature") || lower.includes("flower") || lower.includes("garden") || lower.includes("bloom") || lower.includes("spring") || lower.includes("petal")) {
+        } else if (hasWord("nature", "natural", "flower", "flowers", "garden", "gardens", "bloom", "blooming", "blooms", "spring", "petal", "petals")) {
           bgAnimationType = "blooming_petals";
           weatherOverlay = "none";
-        } else if (lower.includes("code") || lower.includes("data") || lower.includes("matrix") || lower.includes("computer") || lower.includes("digital") || lower.includes("tech") || lower.includes("terminal")) {
+        } else if (hasWord("code", "coding", "codes", "data", "matrix", "computer", "computers", "digital", "tech", "technology", "technical", "terminal", "terminals")) {
           bgAnimationType = "data_grid";
           weatherOverlay = "none";
-        } else if (lower.includes("aurora") || lower.includes("northern lights") || lower.includes("magic")) {
+        } else if (hasWord("aurora", "auroras", "northern lights", "magic", "magical")) {
           bgAnimationType = "Aurora";
           weatherOverlay = "none";
         } else if (type === "sport") {
