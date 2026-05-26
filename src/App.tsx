@@ -32,7 +32,7 @@ export default function App() {
   const [animationStability, setAnimationStability] = useState(true);
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA');
   const [wcagStrictMode, setWcagStrictMode] = useState(true);
-  const [layoutMode, setLayoutMode] = useState<'side' | 'stacked' | 'below'>('side');
+  const [layoutMode, setLayoutMode] = useState<'side' | 'stacked' | 'below'>('below');
   const [viewMode, setViewMode] = useState<'threaded' | 'focus'>('threaded');
   const [conversationMode, setConversationMode] = useState(true);
   const [messageInterval, setMessageInterval] = useState(13);
