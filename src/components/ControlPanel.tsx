@@ -119,18 +119,36 @@ export function ControlPanel({
     setSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const SectionHeader = ({ title, icon: Icon, sectionKey }: { title: string, icon: any, sectionKey: keyof typeof sections }) => (
-    <button 
-      onClick={() => layout === 'side' && toggleSection(sectionKey)} 
-      className={`w-full flex items-center justify-between text-slate-700 font-medium py-2 ${layout === 'side' ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'} transition-colors`}
-    >
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4" />
-        <h3>{title}</h3>
-      </div>
-      {layout === 'side' && (sections[sectionKey] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
-    </button>
-  );
+  const SectionHeader = ({ title, icon: Icon, sectionKey, badge }: { title: string, icon: any, sectionKey: keyof typeof sections, badge?: string }) => {
+    if (isStacked) {
+      return (
+        <div className="w-full flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2 shrink-0 select-none">
+          <div className="flex items-center gap-1.5 text-slate-800 font-semibold text-xs uppercase tracking-wider">
+            <Icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span>{title}</span>
+          </div>
+          {badge && (
+            <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-wider leading-none shrink-0">
+              {badge}
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <button 
+        onClick={() => layout === 'side' && toggleSection(sectionKey)} 
+        className={`w-full flex items-center justify-between text-slate-700 font-medium py-2 ${layout === 'side' ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'} transition-colors`}
+      >
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-slate-500" />
+          <h3>{title}</h3>
+        </div>
+        {layout === 'side' && (sections[sectionKey] ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />)}
+      </button>
+    );
+  };
 
   const isPos = sentiment >= 0;
   const isHigh = engagement >= 0;
@@ -170,11 +188,11 @@ export function ControlPanel({
     : "p-6 flex-1 overflow-y-auto space-y-6";
 
   const cardClasses = isStacked
-    ? "bg-white rounded-xl shadow-sm border border-slate-200 p-5 min-w-[320px] max-w-[320px] shrink-0 h-full overflow-y-auto custom-scrollbar"
+    ? "bg-white rounded-xl shadow-sm border border-slate-200 p-4 min-w-[320px] max-w-[320px] shrink-0 h-full overflow-hidden flex flex-col"
     : "space-y-2";
 
   const renderSectionContent = (key: keyof typeof sections, content: React.ReactNode) => {
-    if (isStacked) return <div className="space-y-4 pt-2">{content}</div>;
+    if (isStacked) return <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-0.5">{content}</div>;
     return sections[key] && <div className="space-y-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">{content}</div>;
   };
 
@@ -226,38 +244,21 @@ export function ControlPanel({
         )}
         
         {/* 1. Affective State */}
-        {isStacked ? (
-          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 min-w-[320px] max-w-[320px] shrink-0 h-full overflow-hidden flex flex-col justify-between items-center">
-            {/* Header / Title showing Sentiment & Engagement */}
-            <div className="w-full flex items-center justify-between border-b border-slate-100 pb-1.5 shrink-0">
-              <div className="flex items-center gap-1.5 text-slate-800 font-semibold text-xs uppercase tracking-wider">
-                <BrainCircuit className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
-                <span>Affective State</span>
-              </div>
-              {/* Emotion Indicator tag */}
-              <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-wider leading-none">
-                {getClosestEmotion(sentiment, engagement)}
-              </span>
-            </div>
-            
-            {/* Centered Circumplex */}
-            <div className="flex-grow flex items-center justify-center w-full py-1">
-              <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} isMini={true} />
-            </div>
-          </section>
-        ) : (
-          <section className={cardClasses}>
-            <SectionHeader title="Affective State" icon={BrainCircuit} sectionKey="affective" />
-            {renderSectionContent('affective', (
-              <>
+        <section className={cardClasses}>
+          <SectionHeader title="Affective State" icon={BrainCircuit} sectionKey="affective" badge={getClosestEmotion(sentiment, engagement)} />
+          {renderSectionContent('affective', (
+            <>
+              {!isStacked && (
                 <p className="text-sm text-slate-500 leading-relaxed">
                   Click and drag on the circumplex model to simulate the user's emotional state. 
                   This defines the context for the AI's response and typographic behavior.
                 </p>
-                <div className="flex justify-center py-4">
-                  <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} isMini={false} />
-                </div>
+              )}
+              <div className={`flex justify-center ${isStacked ? 'py-1 flex-grow flex items-center justify-center' : 'py-4'}`}>
+                <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} isMini={isStacked} />
+              </div>
 
+              {!isStacked && (
                 <details className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-900 leading-relaxed mt-4 group">
                   <summary className="flex items-center gap-2 font-semibold mb-1 cursor-pointer select-none list-none">
                     <Terminal className="w-4 h-4" />
@@ -268,16 +269,16 @@ export function ControlPanel({
                     {systemThinking}
                   </div>
                 </details>
-              </>
-            ))}
-          </section>
-        )}
+              )}
+            </>
+          ))}
+        </section>
 
         {renderDivider()}
 
         {/* 2. Typography Settings */}
         <section className={cardClasses}>
-          <SectionHeader title="Baseline Typography" icon={Type} sectionKey="typography" />
+          <SectionHeader title="Baseline Typography" icon={Type} sectionKey="typography" badge={`${enabledFonts.length} Active`} />
           {renderSectionContent('typography', (
             <>
               {/* Font Categories */}
@@ -366,7 +367,7 @@ export function ControlPanel({
 
         {/* 3. Decoration Pool */}
         <section className={cardClasses}>
-          <SectionHeader title="Decoration Pool" icon={Sparkles} sectionKey="decorations" />
+          <SectionHeader title="Decoration Pool" icon={Sparkles} sectionKey="decorations" badge={`${activeDecorations.length} Styles`} />
           {renderSectionContent('decorations', (
             <>
               <div className="flex justify-between items-center">
@@ -418,7 +419,7 @@ export function ControlPanel({
 
         {/* 4. Animation Library */}
         <section className={cardClasses}>
-          <SectionHeader title="Animation Library" icon={Move} sectionKey="animations" />
+          <SectionHeader title="Animation Library" icon={Move} sectionKey="animations" badge={`${activeAnimations.length} Active`} />
           {renderSectionContent('animations', (
             <>
               <div className="flex justify-between items-center">
@@ -470,7 +471,7 @@ export function ControlPanel({
 
         {/* 5. Animation Controls */}
         <section className={cardClasses}>
-          <SectionHeader title="Animation Controls" icon={Settings} sectionKey="animControls" />
+          <SectionHeader title="Animation Controls" icon={Settings} sectionKey="animControls" badge={`${animationIntensity.toFixed(1)}x Speed`} />
           {renderSectionContent('animControls', (
             <>
               <div className="space-y-2">
@@ -535,7 +536,7 @@ export function ControlPanel({
 
         {/* 6. Background */}
         <section className={cardClasses}>
-          <SectionHeader title="Background" icon={Palette} sectionKey="background" />
+          <SectionHeader title="Background" icon={Palette} sectionKey="background" badge={bgType.toUpperCase()} />
           {renderSectionContent('background', (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -625,7 +626,7 @@ export function ControlPanel({
 
         {/* 7. Accessibility (WCAG) */}
         <section className={cardClasses}>
-          <SectionHeader title="Accessibility (WCAG)" icon={Accessibility} sectionKey="accessibility" />
+          <SectionHeader title="Accessibility (WCAG)" icon={Accessibility} sectionKey="accessibility" badge={`LEVEL ${wcagLevel}`} />
           {renderSectionContent('accessibility', (
             <>
               <div className="space-y-2">
@@ -696,7 +697,7 @@ export function ControlPanel({
 
         {/* 8. User Profile */}
         <section className={cardClasses}>
-          <SectionHeader title="User Profile" icon={User} sectionKey="profile" />
+          <SectionHeader title="User Profile" icon={User} sectionKey="profile" badge={`${sex} / ${age}`} />
           {renderSectionContent('profile', (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -730,7 +731,7 @@ export function ControlPanel({
 
         {/* 9. Playback & Timing */}
         <section className={cardClasses}>
-          <SectionHeader title="Playback & Timing" icon={Clock} sectionKey="playback" />
+          <SectionHeader title="Playback & Timing" icon={Clock} sectionKey="playback" badge={conversationMode ? "AUTO" : "MANUAL"} />
           {renderSectionContent('playback', (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
