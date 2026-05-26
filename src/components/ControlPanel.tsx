@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Circumplex } from './Circumplex';
+import { Circumplex, getClosestEmotion } from './Circumplex';
 import { Settings, Type, Palette, Move, User, BrainCircuit, ChevronDown, ChevronRight, Sparkles, Accessibility, Clock, Terminal } from 'lucide-react';
 import { DECORATION_POOL } from '../lib/decorations';
 import { ANIMATION_POOL } from '../lib/animations';
 import { KineticWord } from './KineticWord';
 
 interface ControlPanelProps {
-  layout?: 'side' | 'stacked';
+  layout?: 'side' | 'stacked' | 'below';
   sentiment: number;
   engagement: number;
   onEmotionChange: (v: number, a: number) => void;
@@ -163,7 +163,7 @@ export function ControlPanel({
 
   const systemThinking = `User is feeling ${mood} (Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}). The AI will tailor its response to match this state. Kinetic type will use ${font} font in ${color}, applying a one-time ${motion}.`;
 
-  const isStacked = layout === 'stacked';
+  const isStacked = layout === 'stacked' || layout === 'below';
 
   const containerClasses = isStacked 
     ? "flex gap-4 overflow-x-auto pb-4 custom-scrollbar h-full items-start" 
@@ -226,31 +226,52 @@ export function ControlPanel({
         )}
         
         {/* 1. Affective State */}
-        <section className={cardClasses}>
-          <SectionHeader title="Affective State" icon={BrainCircuit} sectionKey="affective" />
-          {renderSectionContent('affective', (
-            <>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                Click and drag on the circumplex model to simulate the user's emotional state. 
-                This defines the context for the AI's response and typographic behavior.
-              </p>
-              <div className="flex justify-center py-4">
-                <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} />
+        {isStacked ? (
+          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 min-w-[320px] max-w-[320px] shrink-0 h-full overflow-hidden flex flex-col justify-between items-center">
+            {/* Header / Title showing Sentiment & Engagement */}
+            <div className="w-full flex items-center justify-between border-b border-slate-100 pb-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 text-slate-800 font-semibold text-xs uppercase tracking-wider">
+                <BrainCircuit className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+                <span>Affective State</span>
               </div>
-
-              <details className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-900 leading-relaxed mt-4 group">
-                <summary className="flex items-center gap-2 font-semibold mb-1 cursor-pointer select-none list-none">
-                  <Terminal className="w-4 h-4" />
-                  System Interpretation
-                  <ChevronRight className="w-4 h-4 ml-auto group-open:rotate-90 transition-transform" />
-                </summary>
-                <div className="mt-2 italic pl-6 border-l-2 border-indigo-200">
-                  {systemThinking}
+              {/* Emotion Indicator tag */}
+              <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-wider leading-none">
+                {getClosestEmotion(sentiment, engagement)}
+              </span>
+            </div>
+            
+            {/* Centered Circumplex */}
+            <div className="flex-grow flex items-center justify-center w-full py-1">
+              <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} isMini={true} />
+            </div>
+          </section>
+        ) : (
+          <section className={cardClasses}>
+            <SectionHeader title="Affective State" icon={BrainCircuit} sectionKey="affective" />
+            {renderSectionContent('affective', (
+              <>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Click and drag on the circumplex model to simulate the user's emotional state. 
+                  This defines the context for the AI's response and typographic behavior.
+                </p>
+                <div className="flex justify-center py-4">
+                  <Circumplex sentiment={sentiment} engagement={engagement} onChange={onEmotionChange} isMini={false} />
                 </div>
-              </details>
-            </>
-          ))}
-        </section>
+
+                <details className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-900 leading-relaxed mt-4 group">
+                  <summary className="flex items-center gap-2 font-semibold mb-1 cursor-pointer select-none list-none">
+                    <Terminal className="w-4 h-4" />
+                    System Interpretation
+                    <ChevronRight className="w-4 h-4 ml-auto group-open:rotate-90 transition-transform" />
+                  </summary>
+                  <div className="mt-2 italic pl-6 border-l-2 border-indigo-200">
+                    {systemThinking}
+                  </div>
+                </details>
+              </>
+            ))}
+          </section>
+        )}
 
         {renderDivider()}
 

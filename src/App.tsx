@@ -5,7 +5,7 @@ import { ChatMessage, generateResponse } from './lib/gemini';
 import { DECORATION_POOL } from './lib/decorations';
 import { ANIMATION_POOL } from './lib/animations';
 import { FONTS } from './lib/fonts';
-import { Activity, LayoutTemplate, Maximize2, List } from 'lucide-react';
+import { LayoutTemplate, Maximize2, List } from 'lucide-react';
 
 export default function App() {
   const [sentiment, setSentiment] = useState(0);
@@ -32,7 +32,7 @@ export default function App() {
   const [animationStability, setAnimationStability] = useState(true);
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA');
   const [wcagStrictMode, setWcagStrictMode] = useState(true);
-  const [layoutMode, setLayoutMode] = useState<'side' | 'stacked'>('side');
+  const [layoutMode, setLayoutMode] = useState<'side' | 'stacked' | 'below'>('side');
   const [viewMode, setViewMode] = useState<'threaded' | 'focus'>('threaded');
   const [conversationMode, setConversationMode] = useState(true);
   const [messageInterval, setMessageInterval] = useState(13);
@@ -460,9 +460,11 @@ export default function App() {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-            <Activity className="w-6 h-6" />
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Kinetic Type Logo" 
+            className="w-10 h-10 object-contain rounded-xl shadow-sm border border-slate-100" 
+          />
           <div>
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">Affective Kinetic Type</h1>
             <p className="text-sm text-slate-500 font-medium">Adaptive AI Communication Interface</p>
@@ -484,7 +486,11 @@ export default function App() {
             </span>
           </button>
           <button
-            onClick={() => setLayoutMode(prev => prev === 'side' ? 'stacked' : 'side')}
+            onClick={() => setLayoutMode(prev => {
+              if (prev === 'side') return 'stacked';
+              if (prev === 'stacked') return 'below';
+              return 'side';
+            })}
             className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 min-w-[80px]"
             title="Toggle Layout"
           >
@@ -497,9 +503,9 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 p-6 flex gap-6 overflow-hidden z-10 ${layoutMode === 'stacked' ? 'flex-col' : 'flex-row'}`}>
-        {/* Control Panel */}
-        {viewMode !== 'focus' && (
+      <main className={`flex-1 p-6 flex gap-6 overflow-hidden z-10 ${layoutMode === 'side' ? 'flex-row' : 'flex-col'}`}>
+        {/* Control Panel (Top) */}
+        {viewMode !== 'focus' && layoutMode !== 'below' && (
           <div className={layoutMode === 'stacked' ? 'w-full h-[320px] shrink-0' : 'w-80 shrink-0 h-full'}>
             <ControlPanel
               layout={layoutMode}
@@ -566,6 +572,58 @@ export default function App() {
             messageInterval={messageInterval}
           />
         </div>
+
+        {/* Control Panel (Bottom) */}
+        {viewMode !== 'focus' && layoutMode === 'below' && (
+          <div className="w-full h-[320px] shrink-0">
+            <ControlPanel
+              layout={layoutMode}
+              sentiment={sentiment}
+              engagement={engagement}
+              onEmotionChange={handleEmotionChange}
+              enabledFonts={enabledFonts}
+              onEnabledFontsChange={setEnabledFonts}
+              fontSize={fontSize}
+              onFontSizeChange={setFontSize}
+              fontColor={fontColor}
+              onFontColorChange={setFontColor}
+              age={age}
+              onAgeChange={setAge}
+              sex={sex}
+              onSexChange={setSex}
+              activeDecorations={activeDecorations}
+              onActiveDecorationsChange={setActiveDecorations}
+              activeAnimations={activeAnimations}
+              onActiveAnimationsChange={setActiveAnimations}
+              emotionInfluence={emotionInfluence}
+              onEmotionInfluenceChange={setEmotionInfluence}
+              animationIntensity={animationIntensity}
+              onAnimationIntensityChange={setAnimationIntensity}
+              maxAnimatedKeywords={maxAnimatedKeywords}
+              onMaxAnimatedKeywordsChange={setMaxAnimatedKeywords}
+              animationStability={animationStability}
+              onAnimationStabilityChange={setAnimationStability}
+              wcagLevel={wcagLevel}
+              onWcagLevelChange={setWcagLevel}
+              wcagStrictMode={wcagStrictMode}
+              onWcagStrictModeChange={setWcagStrictMode}
+              bgType={bgType}
+              onBgTypeChange={setBgType}
+              gradientColor1={gradientColor1}
+              onGradientColor1Change={setGradientColor1}
+              gradientColor2={gradientColor2}
+              onGradientColor2Change={setGradientColor2}
+              gradientDirection={gradientDirection}
+              onGradientDirectionChange={setGradientDirection}
+              conversationMode={conversationMode}
+              onConversationModeChange={setConversationMode}
+              messageInterval={messageInterval}
+              onMessageIntervalChange={setMessageInterval}
+              isOfflineMode={isOfflineMode}
+              onOfflineModeChange={setIsOfflineMode}
+            />
+          </div>
+        )}
       </main>
       <footer className="bg-slate-100 py-2 text-center text-xs text-slate-500 border-t border-slate-200 shrink-0">
         &copy; 2026 Chris Adkins
