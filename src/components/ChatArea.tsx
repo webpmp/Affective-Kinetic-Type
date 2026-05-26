@@ -50,7 +50,8 @@ export function ContextualEffectOverlay({
           transition={{
             duration: 4.5,
             ease: "easeOut",
-            times: [0, 0.82, 1] // Stays opaque while rolling, then fades to ultra-low watermark at rest
+            times: [0, 0.82, 1], // Stays opaque while rolling, then fades to ultra-low watermark at rest
+            delay: 0.5
           }}
           style={{ transformOrigin: "center" }}
           className="absolute text-8xl drop-shadow-sm filter select-none z-0"
@@ -1132,7 +1133,7 @@ export function ChatArea({
                 opacity: 0.7 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0),
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="rain-container z-0 pointer-events-none"
             >
               {Array.from({
@@ -1161,7 +1162,7 @@ export function ChatArea({
                 opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0),
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="snow-container z-0 pointer-events-none"
             >
               {Array.from({
@@ -1193,13 +1194,13 @@ export function ChatArea({
                 opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0),
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="sun-container absolute inset-0 overflow-hidden pointer-events-none z-0"
             >
               <motion.div
                 initial={{ left: "-10%", top: "calc(30% + 25px)" }}
                 animate={{ left: "50%", top: "calc(10% + 25px)" }}
-                transition={{ duration: 15, ease: "easeOut" }}
+                transition={{ duration: 15, ease: "easeOut", delay: 0.5 }}
                 className="absolute w-28 h-28 bg-yellow-400 rounded-full blur-xl animate-pulse"
                 style={{
                   translateX: "-50%",
@@ -1210,7 +1211,7 @@ export function ChatArea({
               <motion.div
                 initial={{ left: "-10%", top: "calc(30% + 25px)" }}
                 animate={{ left: "50%", top: "calc(10% + 25px)" }}
-                transition={{ duration: 15, ease: "easeOut" }}
+                transition={{ duration: 15, ease: "easeOut", delay: 0.5 }}
                 className="absolute w-14 h-14 bg-yellow-200 rounded-full shadow-[0_0_45px_rgba(253,224,71,0.8)]"
                 style={{ translateX: "-50%", translateY: "-50%" }}
               />
@@ -1224,7 +1225,7 @@ export function ChatArea({
                 opacity: 0.8 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0),
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="clouds-container absolute inset-0 overflow-hidden pointer-events-none z-0"
             >
               <div className="absolute top-10 left-10 w-64 h-24 bg-white rounded-full blur-md animate-cloud-move-1" />
@@ -1240,7 +1241,7 @@ export function ChatArea({
                 opacity: 0.7 * (latestAiMessage?.wcagStrictMode ? 0.6 : 1.0),
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="fog-container z-0 pointer-events-none"
             >
               <div className="fog-layer" />
@@ -1258,7 +1259,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="eclipse-container z-0 pointer-events-none"
             >
               <div className="eclipse-sun" />
@@ -1276,7 +1277,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="absolute inset-0 overflow-hidden pointer-events-none z-0"
             >
               {Array.from({
@@ -1310,7 +1311,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.5, delay: 0.5 }}
               className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-slate-900/50"
             >
               <div className="absolute inset-0 grid grid-cols-12 gap-1 opacity-20">
@@ -1351,7 +1352,7 @@ export function ChatArea({
                     backgroundOpacityScalar,
                 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 2 }}
+                transition={{ duration: 2, delay: 0.5 }}
                 className="absolute inset-0 overflow-hidden pointer-events-none z-0"
               >
                 <div className="bg-bloom absolute inset-0 w-full h-full" />
@@ -1368,7 +1369,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2 }}
+              transition={{ duration: 2, delay: 0.5 }}
               className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-gridshift"
             />
           )}
@@ -1383,7 +1384,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2 }}
+              transition={{ duration: 2, delay: 0.5 }}
               className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-tide"
             />
           )}
@@ -1398,7 +1399,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 2 }}
+              transition={{ duration: 2, delay: 0.5 }}
               className="bg-mist-veil"
             >
               <div className="mist-blob-1" />
@@ -1416,7 +1417,7 @@ export function ChatArea({
                   backgroundOpacityScalar,
               }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 3 }}
+              transition={{ duration: 3, delay: 0.5 }}
               className="absolute inset-0 z-0 pointer-events-none bg-aurora"
             />
           )}
