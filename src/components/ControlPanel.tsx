@@ -122,7 +122,7 @@ export function ControlPanel({
   const SectionHeader = ({ title, icon: Icon, sectionKey, badge }: { title: string, icon: any, sectionKey: keyof typeof sections, badge?: string }) => {
     if (isStacked) {
       return (
-        <div className="w-full flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2 shrink-0 select-none">
+        <div className="w-full flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2 shrink-0 select-none h-8">
           <div className="flex items-center gap-1.5 text-slate-800 font-semibold text-xs uppercase tracking-wider">
             <Icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
             <span>{title}</span>
@@ -224,10 +224,15 @@ export function ControlPanel({
       <div className={containerClasses}>
         {/* Offline Simulation Card (visible only in stacked layout) */}
         {isStacked && (
-          <section className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-5 min-w-[220px] max-w-[220px] shrink-0 h-full flex flex-col justify-between">
-            <div className="space-y-1">
-              <h3 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Simulation Mode</h3>
-              <p className="text-[10px] text-amber-600 leading-normal">
+          <section className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-4 min-w-[220px] max-w-[220px] shrink-0 h-full flex flex-col justify-between">
+            <div className="space-y-1 flex-1 flex flex-col">
+              <div className="w-full flex items-center justify-between border-b border-amber-200/60 pb-1.5 mb-2 shrink-0 select-none h-8">
+                <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase tracking-wider">
+                  <Terminal className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Simulation Mode</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-amber-600 leading-normal mt-1 flex-1 overflow-y-auto custom-scrollbar">
                 Test kinetic animations, tactical diagrams, and WCAG contrast offline without hits.
               </p>
             </div>
