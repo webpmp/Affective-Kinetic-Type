@@ -1,65 +1,157 @@
 # Affective Kinetic Type
 
-An interactive, highly visual AI chat application that brings conversations to life using dynamic kinetic typography and context-aware environments. Powered by Google's Gemini AI, the application analyzes the sentiment, engagement, and context of the conversation to animate text and change background weather effects in real-time.
+An interactive, highly visual AI chat application that transforms conversations into responsive cinematic experiences using kinetic typography, adaptive layouts, and context-aware environments. Powered by Google’s Gemini AI, the system analyzes emotional tone, engagement, pacing, and conversational context to dynamically animate text, adjust interface behavior, and evolve the surrounding environment in real time.
 
-<img src="https://github.com/webpmp/webpmp.github.io/blob/master/kinetic-type-summary.png" alt="Affective Kinetic Type" style="max-width: 100%;"></a>
+⸻
 
 ## 🌟 Key Features
 
-*   **✨ Kinetic Typography:** Words dynamically animate, scale, and change color based on the underlying emotional sentiment and engagement levels of the AI's response.
-*   **🌦️ Dynamic Weather Backgrounds:** The environment reacts to your conversation. Discussing rain, snow, fog, or sunshine will automatically trigger immersive, animated background effects.
-*   **♿ Accessibility First:** Built-in WCAG compliance controls (A, AA, AAA). Strict mode ensures that text contrast remains readable and animations stay within safe, non-distracting limits.
-*   **💬 Conversation Mode:** Responses are segmented and delivered sequentially with timed transitions, mimicking a natural conversational flow.
-*   **🎛️ Granular Controls:** A comprehensive control panel allows users to tweak fonts, animation intensity, emotional influence, and layout modes.
+### ✨ Kinetic Typography
+
+Words dynamically animate, scale, shift, and respond to the emotional characteristics of the AI response. Calm responses appear stable and restrained, while energetic or emotionally charged responses become more expressive and animated.
+
+### 🌦️ Dynamic Environmental Backgrounds
+
+The interface reacts to conversational context with immersive animated environments. Discussions involving rain, snow, fog, sunlight, storms, or atmospheric conditions automatically trigger corresponding visual effects and lighting changes.
+
+### 📱 Fully Responsive Interface
+
+The application is designed to adapt seamlessly across desktop, tablet, and mobile devices. Layout behavior, typography scaling, control positioning, and interaction patterns adjust dynamically for different screen sizes and orientations.
+
+### 🎛️ Five Control Panel Layout Modes
+
+Users can reposition the control panel to match different workflows and screen configurations. Layout modes include:
+
+* Left Sidebar
+* Right Sidebar
+* Bottom Dock
+* Floating Panel
+* Compact Overlay
+
+Each layout is optimized for usability while preserving visibility of the AI response area.
+
+### 💬 Persistent Conversation History
+
+User-submitted messages and AI responses are stored in an ongoing conversation history, allowing the interface to maintain contextual continuity across exchanges and preserve conversational flow.
+
+### 🧠 Conversation Mode
+
+Responses are segmented and delivered sequentially with timed transitions, creating a more natural conversational cadence and improving readability for long-form responses.
+
+### ♿ Accessibility First
+
+Built-in WCAG compliance controls (A, AA, AAA). Accessibility strictness can limit animation intensity, enforce safe contrast ratios, and reduce visual distraction while preserving the expressive qualities of the interface.
+
+### 🎨 Granular Interface Controls
+
+A comprehensive control system allows users to customize:
+
+* Typography
+* Animation intensity
+* Emotional influence
+* Layout behavior
+* Accessibility strictness
+* Environmental responsiveness
+* Visual density
+
+⸻
 
 ## 💡 How to Use
 
-1.  **Start a Conversation:** Type a message into the chat input at the bottom of the screen.
-2.  **Watch it Come Alive:** Observe how the AI's response is styled. Positive, high-engagement words might bounce and glow, while serious topics might appear more grounded and stable.
-3.  **Change the Weather:** Try talking about a snowy winter day or a bright sunny beach to see the background seamlessly transition to match the mood.
-4.  **Adjust Settings:** Open the Control Panel on the left to experiment with different fonts, tweak the animation intensity, or adjust the accessibility (WCAG) strictness.
+### Start a Conversation
+Type a message into the chat input at the bottom of the interface.
+
+### Watch the Interface Respond
+Observe how typography, pacing, and environmental effects react dynamically to the emotional tone and context of the conversation.
+
+### Change the Environment
+Discuss different environments, weather conditions, or emotional atmospheres to trigger adaptive background transitions and kinetic effects.
+
+### Adjust the Layout
+Switch between the five control panel layouts to optimize the experience for your device, workflow, or preferred interaction style.
+
+### Customize the Experience
+Open the Control Panel to modify fonts, animation behavior, accessibility strictness, environmental effects, and interface responsiveness.
+
+⸻
 
 ## 🚀 Getting Started
 
-Follow these instructions to set up and run the project on your local machine.
+Follow these instructions to set up and run the project locally.
 
 ### Prerequisites
 
-*   Node.js (v18 or higher recommended)
-*   npm (Node Package Manager)
+* Node.js (v18 or higher recommended)
+* npm (Node Package Manager)
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd <repository-directory>
-    ```
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/webpmp/Affective-Kinetic-Type.git
+   cd affective-kinetic-type
+   ```
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-3.  **Set up environment variables:**
-    *   Copy the `.env.example` file to a new file named `.env`.
-    *   Add your Google Gemini API key to the `.env` file:
-        ```env
-        GEMINI_API_KEY=your_api_key_here
-        ```
+3. **Set Up Environment Variables**
+   Copy the `.env.example` file to a new file named `.env`.
+   Add your Google Gemini API key:
+   ```env
+   GEMINI_API_KEY=your_api_key_here
+   ```
 
-4.  **Start the development server:**
-    ```bash
-    npm run dev
-    ```
+4. **Start the Development Server**
+   ```bash
+   npm run dev
+   ```
 
-5.  **Open the app:**
-    Visit `http://localhost:3000` in your browser to start chatting!
+5. **Open the Application**
+   Visit `http://localhost:3000` in your browser to begin interacting with the system.
+
+⸻
 
 ## 🛠️ Technologies Used
 
-*   **React** (with Vite)
-*   **Tailwind CSS** (for styling)
-*   **Framer Motion** (for smooth transitions and animations)
-*   **Google GenAI SDK** (`@google/genai`)
-*   **Lucide React** (for iconography)
+* React (with Vite)
+* Tailwind CSS
+* Framer Motion
+* Google GenAI SDK (`@google/genai`)
+* Lucide React
+
+⸻
+
+## 🧩 Core Interface Systems
+
+* Responsive Layout Engine
+* Kinetic Typography Renderer
+* Sentiment & Engagement Analysis
+* Dynamic Environmental Effects
+* Accessibility Compliance Layer
+* Sequential Conversation Delivery
+* Persistent Conversation History
+* Adaptive Control Panel System
+
+⸻
+
+## 📌 Project Vision
+
+Affective Kinetic Type explores how conversational AI interfaces can become emotionally expressive, spatially adaptive, and visually kinetic without sacrificing readability, accessibility, or usability.
+
+The system treats typography, motion, layout, pacing, and environmental effects as active components of communication rather than passive interface decoration. Every response is designed to feel responsive, atmospheric, and contextually aware while remaining readable and user-controlled.
+
+The project combines:
+
+* Emotional analysis
+* Responsive interface systems
+* Cinematic motion design
+* Adaptive environmental rendering
+* Accessibility-first interaction design
+* Real-time conversational presentation
+
+into a unified AI communication experience that reacts dynamically to both content and user interaction.
+
+Rather than presenting AI responses as static blocks of text, Affective Kinetic Type transforms conversation into a living visual system where language, motion, atmosphere, and interface behavior work together to reinforce meaning and emotional tone.
