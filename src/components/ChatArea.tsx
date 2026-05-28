@@ -588,6 +588,7 @@ interface ChatAreaProps {
   viewMode: "threaded" | "focus";
   conversationMode: boolean;
   messageInterval: number;
+  layoutMode: "side" | "right-side" | "stacked" | "below" | "hidden";
 }
 
 export function ChatArea({
@@ -603,6 +604,7 @@ export function ChatArea({
   viewMode,
   conversationMode,
   messageInterval,
+  layoutMode,
 }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [showSystemThinking, setShowSystemThinking] = useState(false);
@@ -1788,25 +1790,25 @@ export function ChatArea({
           </form>
         </div>
 
-        {/* History Overlay Drawer (Rendered absolutely above or beneath the Input Field depending on viewMode) */}
+        {/* History Overlay Drawer (Rendered absolutely above or beneath the Input Field depending on viewMode/layoutMode) */}
         <AnimatePresence>
           {showHistoryOverlay && (
             <motion.div
               initial={
-                viewMode === "focus"
+                (viewMode === "focus" || layoutMode === "hidden")
                   ? { opacity: 0, y: 10, scale: 0.95 }
                   : { opacity: 0, y: -10, scale: 0.95 }
               }
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={
-                viewMode === "focus"
+                (viewMode === "focus" || layoutMode === "hidden")
                   ? { opacity: 0, y: 10, scale: 0.95 }
                   : { opacity: 0, y: -10, scale: 0.95 }
               }
               transition={{ duration: 0.15, ease: "easeOut" }}
               className={`absolute left-4 right-4 z-40 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 flex flex-col ${
-                viewMode === "focus"
-                  ? "bottom-[84px] max-h-[300px]"
+                (viewMode === "focus" || layoutMode === "hidden")
+                  ? `bottom-[84px] ${layoutMode === "hidden" ? "max-h-[450px]" : "max-h-[300px]"}`
                   : "top-[76px] max-h-[250px]"
               }`}
             >

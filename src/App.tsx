@@ -598,6 +598,7 @@ export default function App() {
             viewMode={viewMode}
             conversationMode={conversationMode}
             messageInterval={messageInterval}
+            layoutMode={layoutMode}
           />
         </div>
 
