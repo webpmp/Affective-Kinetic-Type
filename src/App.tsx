@@ -542,20 +542,6 @@ export default function App() {
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setViewMode(prev => prev === 'threaded' ? 'focus' : 'threaded')}
-            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 min-w-[80px]"
-            title={viewMode === 'threaded' ? 'Switch to Presentation Mode' : 'Switch to Designer Mode'}
-          >
-            {viewMode === 'threaded' ? (
-              <Maximize2 className="w-5 h-5" />
-            ) : (
-              <List className="w-5 h-5" />
-            )}
-            <span className="text-[9px] font-bold tracking-wider uppercase leading-none mt-0.5">
-              {viewMode === 'threaded' ? 'Presentation Mode' : 'Designer Mode'}
-            </span>
-          </button>
-          <button
             onClick={() => setLayoutMode(prev => {
               if (prev === 'side') return 'right-side';
               if (prev === 'right-side') return 'stacked';
