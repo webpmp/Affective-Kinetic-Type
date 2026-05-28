@@ -2,6 +2,10 @@
 
 An interactive, highly visual AI chat application that transforms conversations into responsive cinematic experiences using kinetic typography, adaptive layouts, and context-aware environments. Powered by Google’s Gemini AI, the system analyzes emotional tone, engagement, pacing, and conversational context to dynamically animate text, adjust interface behavior, and evolve the surrounding environment in real time.
 
+<p align="center">
+  <img src="public/readme-kinetic-type.png" alt="Affective Kinetic Type Screenshot" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
+</p>
+
 ⸻
 
 ## 🌟 Key Features
