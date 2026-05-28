@@ -6,7 +6,7 @@ import { ANIMATION_POOL } from '../lib/animations';
 import { KineticWord } from './KineticWord';
 
 interface ControlPanelProps {
-  layout?: 'side' | 'stacked' | 'below';
+  layout?: 'side' | 'right-side' | 'stacked' | 'below' | 'hidden';
   sentiment: number;
   engagement: number;
   onEmotionChange: (v: number, a: number) => void;
@@ -103,6 +103,9 @@ export function ControlPanel({
   onOfflineModeChange,
 }: ControlPanelProps) {
 
+  const isStacked = layout === 'stacked' || layout === 'below';
+  const isSidebar = layout === 'side' || layout === 'right-side';
+
   const [sections, setSections] = useState({
     affective: true,
     typography: false,
@@ -138,14 +141,14 @@ export function ControlPanel({
 
     return (
       <button 
-        onClick={() => layout === 'side' && toggleSection(sectionKey)} 
-        className={`w-full flex items-center justify-between text-slate-700 font-medium py-2 ${layout === 'side' ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'} transition-colors`}
+        onClick={() => isSidebar && toggleSection(sectionKey)} 
+        className={`w-full flex items-center justify-between text-slate-700 font-medium py-2 ${isSidebar ? 'hover:text-indigo-600 cursor-pointer' : 'cursor-default'} transition-colors`}
       >
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4 text-slate-500" />
           <h3>{title}</h3>
         </div>
-        {layout === 'side' && (sections[sectionKey] ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />)}
+        {isSidebar && (sections[sectionKey] ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />)}
       </button>
     );
   };
@@ -180,8 +183,6 @@ export function ControlPanel({
   }
 
   const systemThinking = `User is feeling ${mood} (Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}). The AI will tailor its response to match this state. Kinetic type will use ${font} font in ${color}, applying a one-time ${motion}.`;
-
-  const isStacked = layout === 'stacked' || layout === 'below';
 
   const containerClasses = isStacked 
     ? "flex gap-4 overflow-x-auto pb-4 custom-scrollbar h-full items-start" 

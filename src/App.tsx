@@ -32,7 +32,7 @@ export default function App() {
   const [animationStability, setAnimationStability] = useState(true);
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA');
   const [wcagStrictMode, setWcagStrictMode] = useState(true);
-  const [layoutMode, setLayoutMode] = useState<'side' | 'stacked' | 'below'>('below');
+  const [layoutMode, setLayoutMode] = useState<'side' | 'right-side' | 'stacked' | 'below' | 'hidden'>('below');
   const [viewMode, setViewMode] = useState<'threaded' | 'focus'>('threaded');
   const [conversationMode, setConversationMode] = useState(true);
   const [messageInterval, setMessageInterval] = useState(13);
@@ -476,6 +476,55 @@ export default function App() {
     setViewMode(newMode);
   };
 
+  const renderControlPanel = (mode: typeof layoutMode) => (
+    <ControlPanel
+      layout={mode}
+      sentiment={sentiment}
+      engagement={engagement}
+      onEmotionChange={handleEmotionChange}
+      enabledFonts={enabledFonts}
+      onEnabledFontsChange={setEnabledFonts}
+      fontSize={fontSize}
+      onFontSizeChange={setFontSize}
+      fontColor={fontColor}
+      onFontColorChange={setFontColor}
+      age={age}
+      onAgeChange={setAge}
+      sex={sex}
+      onSexChange={setSex}
+      activeDecorations={activeDecorations}
+      onActiveDecorationsChange={setActiveDecorations}
+      activeAnimations={activeAnimations}
+      onActiveAnimationsChange={setActiveAnimations}
+      emotionInfluence={emotionInfluence}
+      onEmotionInfluenceChange={setEmotionInfluence}
+      animationIntensity={animationIntensity}
+      onAnimationIntensityChange={setAnimationIntensity}
+      maxAnimatedKeywords={maxAnimatedKeywords}
+      onMaxAnimatedKeywordsChange={setMaxAnimatedKeywords}
+      animationStability={animationStability}
+      onAnimationStabilityChange={setAnimationStability}
+      wcagLevel={wcagLevel}
+      onWcagLevelChange={setWcagLevel}
+      wcagStrictMode={wcagStrictMode}
+      onWcagStrictModeChange={setWcagStrictMode}
+      bgType={bgType}
+      onBgTypeChange={setBgType}
+      gradientColor1={gradientColor1}
+      onGradientColor1Change={setGradientColor1}
+      gradientColor2={gradientColor2}
+      onGradientColor2Change={setGradientColor2}
+      gradientDirection={gradientDirection}
+      onGradientDirectionChange={setGradientDirection}
+      conversationMode={conversationMode}
+      onConversationModeChange={setConversationMode}
+      messageInterval={messageInterval}
+      onMessageIntervalChange={setMessageInterval}
+      isOfflineMode={isOfflineMode}
+      onOfflineModeChange={setIsOfflineMode}
+    />
+  );
+
   return (
     <div className="h-dvh bg-slate-100 flex flex-col font-sans text-slate-900 relative overflow-hidden">
       {/* Header */}
@@ -508,8 +557,10 @@ export default function App() {
           </button>
           <button
             onClick={() => setLayoutMode(prev => {
-              if (prev === 'side') return 'stacked';
+              if (prev === 'side') return 'right-side';
+              if (prev === 'right-side') return 'stacked';
               if (prev === 'stacked') return 'below';
+              if (prev === 'below') return 'hidden';
               return 'side';
             })}
             className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 min-w-[80px]"
@@ -524,56 +575,11 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 p-6 flex gap-6 overflow-hidden z-10 ${layoutMode === 'side' ? 'flex-row' : 'flex-col'}`}>
-        {/* Control Panel (Top) */}
-        {viewMode !== 'focus' && layoutMode !== 'below' && (
+      <main className={`flex-1 p-6 flex gap-6 overflow-hidden z-10 ${(layoutMode === 'side' || layoutMode === 'right-side') ? 'flex-row' : 'flex-col'}`}>
+        {/* Control Panel (Left Sidebar / Stacked Top) */}
+        {viewMode !== 'focus' && (layoutMode === 'side' || layoutMode === 'stacked') && (
           <div className={layoutMode === 'stacked' ? 'w-full h-[320px] shrink-0' : 'w-80 shrink-0 h-full'}>
-            <ControlPanel
-              layout={layoutMode}
-              sentiment={sentiment}
-              engagement={engagement}
-              onEmotionChange={handleEmotionChange}
-              enabledFonts={enabledFonts}
-              onEnabledFontsChange={setEnabledFonts}
-              fontSize={fontSize}
-              onFontSizeChange={setFontSize}
-              fontColor={fontColor}
-              onFontColorChange={setFontColor}
-              age={age}
-              onAgeChange={setAge}
-              sex={sex}
-              onSexChange={setSex}
-              activeDecorations={activeDecorations}
-              onActiveDecorationsChange={setActiveDecorations}
-              activeAnimations={activeAnimations}
-              onActiveAnimationsChange={setActiveAnimations}
-              emotionInfluence={emotionInfluence}
-              onEmotionInfluenceChange={setEmotionInfluence}
-              animationIntensity={animationIntensity}
-              onAnimationIntensityChange={setAnimationIntensity}
-              maxAnimatedKeywords={maxAnimatedKeywords}
-              onMaxAnimatedKeywordsChange={setMaxAnimatedKeywords}
-              animationStability={animationStability}
-              onAnimationStabilityChange={setAnimationStability}
-              wcagLevel={wcagLevel}
-              onWcagLevelChange={setWcagLevel}
-              wcagStrictMode={wcagStrictMode}
-              onWcagStrictModeChange={setWcagStrictMode}
-              bgType={bgType}
-              onBgTypeChange={setBgType}
-              gradientColor1={gradientColor1}
-              onGradientColor1Change={setGradientColor1}
-              gradientColor2={gradientColor2}
-              onGradientColor2Change={setGradientColor2}
-              gradientDirection={gradientDirection}
-              onGradientDirectionChange={setGradientDirection}
-              conversationMode={conversationMode}
-              onConversationModeChange={setConversationMode}
-              messageInterval={messageInterval}
-              onMessageIntervalChange={setMessageInterval}
-              isOfflineMode={isOfflineMode}
-              onOfflineModeChange={setIsOfflineMode}
-            />
+            {renderControlPanel(layoutMode)}
           </div>
         )}
 
@@ -595,55 +601,17 @@ export default function App() {
           />
         </div>
 
+        {/* Control Panel (Right Sidebar) */}
+        {viewMode !== 'focus' && layoutMode === 'right-side' && (
+          <div className="w-80 shrink-0 h-full">
+            {renderControlPanel(layoutMode)}
+          </div>
+        )}
+
         {/* Control Panel (Bottom) */}
         {viewMode !== 'focus' && layoutMode === 'below' && (
           <div className="w-full h-[320px] shrink-0">
-            <ControlPanel
-              layout={layoutMode}
-              sentiment={sentiment}
-              engagement={engagement}
-              onEmotionChange={handleEmotionChange}
-              enabledFonts={enabledFonts}
-              onEnabledFontsChange={setEnabledFonts}
-              fontSize={fontSize}
-              onFontSizeChange={setFontSize}
-              fontColor={fontColor}
-              onFontColorChange={setFontColor}
-              age={age}
-              onAgeChange={setAge}
-              sex={sex}
-              onSexChange={setSex}
-              activeDecorations={activeDecorations}
-              onActiveDecorationsChange={setActiveDecorations}
-              activeAnimations={activeAnimations}
-              onActiveAnimationsChange={setActiveAnimations}
-              emotionInfluence={emotionInfluence}
-              onEmotionInfluenceChange={setEmotionInfluence}
-              animationIntensity={animationIntensity}
-              onAnimationIntensityChange={setAnimationIntensity}
-              maxAnimatedKeywords={maxAnimatedKeywords}
-              onMaxAnimatedKeywordsChange={setMaxAnimatedKeywords}
-              animationStability={animationStability}
-              onAnimationStabilityChange={setAnimationStability}
-              wcagLevel={wcagLevel}
-              onWcagLevelChange={setWcagLevel}
-              wcagStrictMode={wcagStrictMode}
-              onWcagStrictModeChange={setWcagStrictMode}
-              bgType={bgType}
-              onBgTypeChange={setBgType}
-              gradientColor1={gradientColor1}
-              onGradientColor1Change={setGradientColor1}
-              gradientColor2={gradientColor2}
-              onGradientColor2Change={setGradientColor2}
-              gradientDirection={gradientDirection}
-              onGradientDirectionChange={setGradientDirection}
-              conversationMode={conversationMode}
-              onConversationModeChange={setConversationMode}
-              messageInterval={messageInterval}
-              onMessageIntervalChange={setMessageInterval}
-              isOfflineMode={isOfflineMode}
-              onOfflineModeChange={setIsOfflineMode}
-            />
+            {renderControlPanel(layoutMode)}
           </div>
         )}
       </main>
