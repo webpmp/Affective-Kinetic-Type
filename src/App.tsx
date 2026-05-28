@@ -129,6 +129,25 @@ export default function App() {
     setEngagement(a);
   };
 
+  const handleClearHistory = () => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: "Hello. I’m your AI assistant. My responses and typography will adapt to the emotional state you select on the circumplex model. You can talk with me about almost anything, like questions, ideas, plans, or whatever is on your mind. What would you like to do right now?",
+        segments: [
+          { text: "Hello. I’m your AI assistant. My responses and typography will adapt to the emotional state you select on the circumplex model.", scale: "large", alignment: "center", fontVariant: "Playfair Display" },
+          { text: "You can talk with me about almost anything, like questions, ideas, plans, or whatever is on your mind. What would you like to do right now?", scale: "normal", alignment: "center", fontVariant: "Inter" }
+        ],
+        sentiment: 0,
+        engagement: 0,
+        fontSize: 24,
+        fontColor: '#ffffff',
+        age: 30,
+        sex: 'Neutral'
+      }
+    ]);
+  };
+
   const handleSendMessage = async (text: string) => {
     const userMessage: ChatMessage = { 
       role: 'user', 
@@ -563,6 +582,7 @@ export default function App() {
           <ChatArea
             messages={messages}
             onSendMessage={handleSendMessage}
+            onClearHistory={handleClearHistory}
             isTyping={isTyping}
             bgPrompt={bgPrompt}
             bgType={bgType}

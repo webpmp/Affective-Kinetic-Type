@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, History, X } from "lucide-react";
 import { ChatMessage, TextSegment, ContextualEffect } from "../lib/gemini";
 import { KineticWord } from "./KineticWord";
 import { FONTS } from "../lib/fonts";
@@ -578,6 +578,7 @@ export function GenerationAmbientLayer({
 interface ChatAreaProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  onClearHistory?: () => void;
   isTyping: boolean;
   bgPrompt?: string | null;
   bgType?: "image" | "gradient";
@@ -592,6 +593,7 @@ interface ChatAreaProps {
 export function ChatArea({
   messages,
   onSendMessage,
+  onClearHistory,
   isTyping,
   bgPrompt,
   bgType = "gradient",
@@ -609,9 +611,29 @@ export function ChatArea({
   >("thinking");
   const [isAnimatingTabs, setIsAnimatingTabs] = useState(false);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
+  const [isTabsCollapsed, setIsTabsCollapsed] = useState(true);
+  const [showHistoryOverlay, setShowHistoryOverlay] = useState(false);
+
+  const handleTabClick = (tab: "thinking" | "settings" | "accessibility") => {
+    if (activeTab === tab) {
+      setIsTabsCollapsed(!isTabsCollapsed);
+    } else {
+      setActiveTab(tab);
+      setIsTabsCollapsed(false);
+    }
+  };
 
   const latestAiMessageRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSelectHistoryMessage = (content: string) => {
+    setInput(content);
+    setShowHistoryOverlay(false);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
 
   const aiMessages = messages.filter((m) => m.role === "assistant");
   const userMessages = messages.filter((m) => m.role === "user");
@@ -686,6 +708,7 @@ export function ChatArea({
       setShowSystemThinking(false);
       setActiveTab("thinking");
       setIsAnimatingTabs(false);
+      setShowHistoryOverlay(false);
     } else {
       // If the AI message is completely empty (no words to animate), show thinking immediately
       const latestAiMessage = messages
@@ -697,11 +720,24 @@ export function ChatArea({
     }
   }, [isTyping, messages]);
 
+  useEffect(() => {
+    if (isTyping) {
+      setIsTabsCollapsed(true);
+    }
+  }, [isTyping]);
+
+  useEffect(() => {
+    if (showSystemThinking) {
+      setIsTabsCollapsed(false);
+    }
+  }, [showSystemThinking]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isTyping) {
       onSendMessage(input.trim());
       setInput("");
+      setShowHistoryOverlay(false);
     }
   };
 
@@ -1083,10 +1119,10 @@ export function ChatArea({
   const backgroundOpacityScalar = isLongText ? 0.3 : 1.0;
 
   return (
-    <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative min-h-0">
+    <div className="flex flex-col flex-grow flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 relative min-h-0">
       {/* AI Response Area (Top) */}
       <div 
-        className="relative p-6 z-10 flex flex-col justify-center items-center flex-1 min-h-[150px] max-h-[400px] overflow-hidden transition-colors duration-1000"
+        className={`relative p-6 pb-16 ${!isTabsCollapsed ? "z-20" : "z-10"} flex flex-col justify-center items-center flex-grow flex-1 min-h-[320px] md:min-h-[400px] max-h-none h-auto rounded-t-2xl overflow-hidden transition-colors duration-1000`}
         style={{ backgroundColor: containerBgColor }}
       >
         {/* Environmental Scene & Background Image */}
@@ -1551,62 +1587,62 @@ export function ChatArea({
               </div>
             )}
         </div>
+
+        {/* Tab Bar Overlaid Inside AI Response Window (Bottom edge) */}
+        {(latestAiMessage || isTyping) && hasUserMessages && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 flex space-x-2 px-6">
+            <button
+              onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && handleTabClick("thinking")}
+              disabled={!hasUserMessages || isTyping || isAnimatingTabs}
+              className={`px-4 py-2 font-semibold rounded-t-md border relative bottom-[-1px] ${
+                hasUserMessages && activeTab === "thinking" && !isTabsCollapsed && !isTyping && !isAnimatingTabs
+                  ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)] text-xs"
+                  : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 text-xs ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
+              }`}
+            >
+              SYSTEM THINKING
+            </button>
+            <button
+              onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && handleTabClick("settings")}
+              disabled={!hasUserMessages || isTyping || isAnimatingTabs}
+              className={`px-4 py-2 text-xs font-semibold rounded-t-md border relative bottom-[-1px] ${
+                hasUserMessages && activeTab === "settings" && !isTabsCollapsed && !isTyping && !isAnimatingTabs
+                  ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)]"
+                  : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
+              }`}
+            >
+              KINETIC TYPE SETTINGS
+            </button>
+            <button
+              onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && handleTabClick("accessibility")}
+              disabled={!hasUserMessages || isTyping || isAnimatingTabs}
+              className={`px-4 py-2 text-xs font-semibold rounded-t-md border relative bottom-[-1px] ${
+                hasUserMessages && activeTab === "accessibility" && !isTabsCollapsed && !isTyping && !isAnimatingTabs
+                  ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)]"
+                  : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
+              }`}
+            >
+              ACCESSIBILITY ADJUSTMENTS
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* System Thinking Area (Middle) */}
-      {(latestAiMessage || isTyping) && hasUserMessages && (
-        <div className="shrink-0 z-20 w-full">
-          <div className="w-full -mt-[35px] relative z-20">
-            <div className="flex space-x-2 px-6 mb-0 relative z-20">
-              <button
-                onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && setActiveTab("thinking")}
-                disabled={!hasUserMessages || isTyping || isAnimatingTabs}
-                className={`px-4 py-2 font-semibold rounded-t-md border relative bottom-[-1px] ${
-                  hasUserMessages && activeTab === "thinking" && !isTyping && !isAnimatingTabs
-                    ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)] text-xs"
-                    : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 text-xs ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
-                }`}
-              >
-                SYSTEM THINKING
-              </button>
-              <button
-                onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && setActiveTab("settings")}
-                disabled={!hasUserMessages || isTyping || isAnimatingTabs}
-                className={`px-4 py-2 text-xs font-semibold rounded-t-md border relative bottom-[-1px] ${
-                  hasUserMessages && activeTab === "settings" && !isTyping && !isAnimatingTabs
-                    ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)]"
-                    : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
-                }`}
-              >
-                KINETIC TYPE SETTINGS
-              </button>
-              <button
-                onClick={() => hasUserMessages && !isTyping && !isAnimatingTabs && setActiveTab("accessibility")}
-                disabled={!hasUserMessages || isTyping || isAnimatingTabs}
-                className={`px-4 py-2 text-xs font-semibold rounded-t-md border relative bottom-[-1px] ${
-                  hasUserMessages && activeTab === "accessibility" && !isTyping && !isAnimatingTabs
-                    ? "bg-slate-800 text-slate-100 border-slate-600 border-b-slate-800 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.5)]"
-                    : `bg-slate-900 ${!hasUserMessages ? 'text-slate-500' : 'text-slate-400'} border-slate-700/50 border-b-slate-600 ${hasUserMessages && !isTyping && !isAnimatingTabs ? "hover:bg-slate-800 hover:text-slate-300 transition-colors" : "cursor-default"}`
-                }`}
-              >
-                ACCESSIBILITY ADJUSTMENTS
-              </button>
-            </div>
-
-            <AnimatePresence>
-              {hasUserMessages && !isTyping && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 230, opacity: 1 }}
-                  exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
-                  transition={{ 
-                    duration: 0.25, 
-                    ease: "easeOut"
-                  }}
-                  onAnimationStart={() => setIsAnimatingTabs(true)}
-                  onAnimationComplete={() => setIsAnimatingTabs(false)}
-                  className={`bg-slate-800 border-t border-b-0 border-slate-600 py-4 px-6 shadow-lg text-xs text-slate-300 leading-relaxed overflow-y-auto relative z-10 w-full`}
-                >
+      {/* Expanded Tab Content Drawer (Middle) */}
+      <AnimatePresence>
+        {hasUserMessages && !isTyping && !isTabsCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 230, opacity: 1 }}
+            exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
+            transition={{ 
+              duration: 0.25, 
+              ease: "easeOut"
+            }}
+            onAnimationStart={() => setIsAnimatingTabs(true)}
+            onAnimationComplete={() => setIsAnimatingTabs(false)}
+            className="shrink-0 bg-slate-800 border-t border-b border-slate-600 py-4 px-6 shadow-lg text-xs text-slate-300 leading-relaxed overflow-y-auto relative z-10 w-full -mt-[1px]"
+          >
                 {activeTab === "thinking" && (
                   <div className="font-normal not-italic text-[14px] pl-3 border-l-2 border-slate-500/50">
                     {latestAiMessage?.thinking || "..."}
@@ -1716,55 +1752,117 @@ export function ChatArea({
                     </ul>
                   </div>
                 )}
-              </motion.div>
-            )}
-            </AnimatePresence>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* User Input Area (Bottom) */}
-      <div className="border-t border-slate-200 bg-slate-50 flex flex-col z-10 flex-1 min-h-0">
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
-        >
-          <AnimatePresence initial={false}>
-            {userMessagesToShow.map((msg, idx) => (
-              <motion.div
-                key={`user-${idx}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-end"
-              >
-                <div className="max-w-[80%] bg-indigo-50 text-indigo-900 rounded-2xl rounded-br-sm px-5 py-3 border border-indigo-200 shadow-sm">
-                  {renderMessageContent(msg, false)}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
+      {/* User Input & History Area (Bottom) */}
+      <div className="shrink-0 flex flex-col relative bg-slate-50 border-t border-slate-200 rounded-b-2xl z-30">
         {/* Input Form */}
-        <div className="p-4 bg-white border-t border-slate-200">
-          <form onSubmit={handleSubmit} className="relative flex items-center">
+        <div className="p-4 bg-white relative z-50 rounded-b-2xl">
+          <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowHistoryOverlay(!showHistoryOverlay)}
+              className={`p-2.5 rounded-xl border border-slate-200 transition-colors ${showHistoryOverlay ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700'}`}
+              title="Show Conversation History"
+            >
+              <History className="w-5 h-5" />
+            </button>
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message..."
               disabled={isTyping}
-              className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow disabled:opacity-50 disabled:bg-slate-100"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow disabled:opacity-50 disabled:bg-slate-100 text-sm"
             />
             <button
               type="submit"
               disabled={!input.trim() || isTyping}
-              className="absolute right-2 p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+              className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors"
             >
               <Send className="w-5 h-5" />
             </button>
           </form>
         </div>
+
+        {/* History Overlay Drawer (Rendered absolutely above or beneath the Input Field depending on viewMode) */}
+        <AnimatePresence>
+          {showHistoryOverlay && (
+            <motion.div
+              initial={
+                viewMode === "focus"
+                  ? { opacity: 0, y: 10, scale: 0.95 }
+                  : { opacity: 0, y: -10, scale: 0.95 }
+              }
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={
+                viewMode === "focus"
+                  ? { opacity: 0, y: 10, scale: 0.95 }
+                  : { opacity: 0, y: -10, scale: 0.95 }
+              }
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className={`absolute left-4 right-4 z-40 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 flex flex-col ${
+                viewMode === "focus"
+                  ? "bottom-[84px] max-h-[300px]"
+                  : "top-[76px] max-h-[250px]"
+              }`}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/50 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <History className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-semibold text-slate-700">Conversation History</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {onClearHistory && userMessages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClearHistory();
+                        setShowHistoryOverlay(false);
+                      }}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                      title="Clear all messages in the conversation"
+                    >
+                      Clear History
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowHistoryOverlay(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-[180px]">
+                {userMessages.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs">
+                    No sent messages in this conversation.
+                  </div>
+                ) : (
+                  [...userMessages].reverse().map((msg, idx) => (
+                    <button 
+                      key={`hist-${idx}`}
+                      type="button"
+                      onClick={() => handleSelectHistoryMessage(msg.content)}
+                      className="w-full text-left p-2.5 rounded-lg bg-white hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-900 text-xs font-normal leading-relaxed break-words shadow-sm transition-all flex items-center justify-between group"
+                      title="Click to select and edit this message"
+                    >
+                      <span className="flex-1 pr-4">{msg.content}</span>
+                      <span className="text-[10px] text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity font-semibold shrink-0">
+                        Select &rarr;
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
