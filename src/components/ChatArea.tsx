@@ -1818,20 +1818,20 @@ export function ChatArea({
             <motion.div
               ref={historyOverlayRef}
               initial={
-                (viewMode === "focus" || layoutMode === "hidden")
+                (viewMode === "focus" || layoutMode !== "below")
                   ? { opacity: 0, y: 10, scale: 0.95 }
                   : { opacity: 0, y: -10, scale: 0.95 }
               }
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={
-                (viewMode === "focus" || layoutMode === "hidden")
+                (viewMode === "focus" || layoutMode !== "below")
                   ? { opacity: 0, y: 10, scale: 0.95 }
                   : { opacity: 0, y: -10, scale: 0.95 }
               }
               transition={{ duration: 0.15, ease: "easeOut" }}
               className={`absolute left-4 right-4 z-40 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 flex flex-col ${
-                (viewMode === "focus" || layoutMode === "hidden")
-                  ? `bottom-[84px] ${layoutMode === "hidden" ? "max-h-[450px]" : "max-h-[300px]"}`
+                (viewMode === "focus" || layoutMode !== "below")
+                  ? `bottom-[84px] ${(layoutMode === "side" || layoutMode === "right-side" || layoutMode === "hidden") ? "max-h-[400px]" : "max-h-[300px]"}`
                   : "top-[76px] max-h-[250px]"
               }`}
             >
