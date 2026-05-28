@@ -602,8 +602,18 @@ export default function App() {
           </div>
         )}
       </main>
-      <footer className="bg-slate-100 py-2 text-center text-xs text-slate-500 border-t border-slate-200 shrink-0">
-        &copy; 2026 Chris Adkins
+      <footer className="bg-slate-100 py-2.5 text-center text-xs text-slate-500 border-t border-slate-200 shrink-0">
+        <p>
+          &copy; {new Date().getFullYear()} Chris Adkins.
+          <a 
+            href="https://github.com/webpmp/Affective-Kinetic-Type" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-indigo-600 hover:text-indigo-800 hover:underline ml-1 transition-colors"
+          >
+            View Source on GitHub
+          </a>
+        </p>
       </footer>
     </div>
   );
