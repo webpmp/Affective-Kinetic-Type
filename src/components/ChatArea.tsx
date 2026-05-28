@@ -1145,7 +1145,7 @@ export function ChatArea({
     <div className="flex flex-col flex-grow flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 relative min-h-0">
       {/* AI Response Area (Top) */}
       <div 
-        className={`relative p-6 pb-16 ${!isTabsCollapsed ? "z-20" : "z-10"} flex flex-col justify-center items-center flex-grow flex-1 min-h-[320px] md:min-h-[400px] max-h-none h-auto rounded-t-2xl overflow-hidden transition-colors duration-1000`}
+        className={`relative p-6 pb-16 ${!isTabsCollapsed ? "z-20 min-h-[160px] md:min-h-[220px]" : "z-10 min-h-[320px] md:min-h-[400px]"} flex flex-col justify-center items-center flex-grow flex-1 max-h-none h-auto rounded-t-2xl overflow-hidden transition-colors duration-1000`}
         style={{ backgroundColor: containerBgColor }}
       >
         {/* Environmental Scene & Background Image */}
