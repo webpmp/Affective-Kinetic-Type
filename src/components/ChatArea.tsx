@@ -628,6 +628,8 @@ export function ChatArea({
   const latestAiMessageRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyOverlayRef = useRef<HTMLDivElement>(null);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSelectHistoryMessage = (content: string) => {
     setInput(content);
@@ -733,6 +735,25 @@ export function ChatArea({
       setIsTabsCollapsed(false);
     }
   }, [showSystemThinking]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showHistoryOverlay &&
+        historyOverlayRef.current &&
+        !historyOverlayRef.current.contains(event.target as Node) &&
+        historyButtonRef.current &&
+        !historyButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowHistoryOverlay(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showHistoryOverlay]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1764,6 +1785,7 @@ export function ChatArea({
         <div className="p-4 bg-white relative z-50 rounded-b-2xl">
           <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
             <button
+              ref={historyButtonRef}
               type="button"
               onClick={() => setShowHistoryOverlay(!showHistoryOverlay)}
               className={`p-2.5 rounded-xl border border-slate-200 transition-colors ${showHistoryOverlay ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700'}`}
@@ -1794,6 +1816,7 @@ export function ChatArea({
         <AnimatePresence>
           {showHistoryOverlay && (
             <motion.div
+              ref={historyOverlayRef}
               initial={
                 (viewMode === "focus" || layoutMode === "hidden")
                   ? { opacity: 0, y: 10, scale: 0.95 }
