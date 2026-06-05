@@ -18,8 +18,8 @@ interface ControlPanelProps {
   onFontColorChange: (color: string) => void;
   age: number;
   onAgeChange: (age: number) => void;
-  sex: string;
-  onSexChange: (sex: string) => void;
+  gender: string;
+  onGenderChange: (gender: string) => void;
   activeDecorations: string[];
   onActiveDecorationsChange: (decorations: string[]) => void;
   activeAnimations: string[];
@@ -54,7 +54,7 @@ interface ControlPanelProps {
 
 import { FONTS } from '../lib/fonts';
 
-const SEX_OPTIONS = ['Neutral', 'Female', 'Male'];
+const GENDER_OPTIONS = ['Neutral', 'Female', 'Male'];
 
 export function ControlPanel({
   layout = 'side',
@@ -69,8 +69,8 @@ export function ControlPanel({
   onFontColorChange,
   age,
   onAgeChange,
-  sex,
-  onSexChange,
+  gender,
+  onGenderChange,
   activeDecorations,
   onActiveDecorationsChange,
   activeAnimations,
@@ -703,7 +703,7 @@ export function ControlPanel({
 
         {/* 8. User Profile */}
         <section className={cardClasses}>
-          <SectionHeader title="User Profile" icon={User} sectionKey="profile" badge={`${sex} / ${age}`} />
+          <SectionHeader title="User Profile" icon={User} sectionKey="profile" badge={`${gender} / ${age}`} />
           {renderSectionContent('profile', (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -718,14 +718,14 @@ export function ControlPanel({
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600 block">Sex</label>
+                <label className="text-sm font-medium text-slate-600 block">Gender</label>
                 <select
-                  value={sex}
-                  onChange={(e) => onSexChange(e.target.value)}
+                  value={gender}
+                  onChange={(e) => onGenderChange(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {SEX_OPTIONS.map(s => (
-                    <option key={s} value={s}>{s}</option>
+                  {GENDER_OPTIONS.map(g => (
+                    <option key={g} value={g}>{g}</option>
                   ))}
                 </select>
               </div>

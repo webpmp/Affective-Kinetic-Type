@@ -49,7 +49,7 @@ export interface ChatMessage {
   wcagLevel?: 'A' | 'AA' | 'AAA';
   wcagStrictMode?: boolean;
   age?: number;
-  sex?: string;
+  gender?: string;
   weatherEffect?: 'none' | 'rain' | 'fog' | 'eclipse' | 'clouds' | 'sun' | 'snow' | 'confetti' | 'floral' | 'data-stream';
   baseTheme?: string;
   bgAnimationType?: string;
@@ -63,7 +63,7 @@ export async function generateResponse(
   sentiment: number, 
   engagement: number,
   age: number,
-  sex: string,
+  gender: string,
   enabledFonts: string[]
 ): Promise<{ 
   text: string, 
@@ -93,7 +93,7 @@ export async function generateResponse(
   }
 
   const systemInstruction = `You are an adaptive AI assistant specializing in Kinetic Typography and editorial composition. 
-User Profile: Age ${age}, Sex: ${sex}. Tailor your language, tone, and references appropriately for this user.
+User Profile: Age ${age}, Gender: ${gender}. Tailor your language, tone, and references appropriately for this user.
 
 The user's current emotional state is defined by a circumplex model:
 Sentiment (Negative to Positive): ${sentiment.toFixed(2)} (-1 to 1)

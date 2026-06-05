@@ -20,7 +20,7 @@ export default function App() {
   
   // New State
   const [age, setAge] = useState(30);
-  const [sex, setSex] = useState('Neutral');
+  const [gender, setGender] = useState('Neutral');
   const [activeDecorations, setActiveDecorations] = useState<string[]>(
     DECORATION_POOL.map(d => d.id).filter(id => !id.startsWith('lt-') && id !== 'ts-sharp')
   );
@@ -57,7 +57,7 @@ export default function App() {
       fontSize: 24,
       fontColor: '#ffffff',
       age: 30,
-      sex: 'Neutral'
+      gender: 'Neutral'
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
@@ -143,7 +143,7 @@ export default function App() {
         fontSize: 24,
         fontColor: '#ffffff',
         age: 30,
-        sex: 'Neutral'
+        gender: 'Neutral'
       }
     ]);
   };
@@ -361,7 +361,7 @@ export default function App() {
           sentiment, 
           engagement,
           age,
-          sex,
+          gender,
           enabledFonts
         );
         aiText = response.text;
@@ -402,7 +402,7 @@ export default function App() {
         wcagLevel,
         wcagStrictMode,
         age,
-        sex,
+        gender,
         weatherEffect,
         baseTheme,
         bgAnimationType,
@@ -453,7 +453,7 @@ export default function App() {
         wcagLevel,
         wcagStrictMode,
         age,
-        sex,
+        gender,
         weatherEffect: "none",
         baseTheme: "Minimalist",
         bgAnimationType: "none",
@@ -490,8 +490,8 @@ export default function App() {
       onFontColorChange={setFontColor}
       age={age}
       onAgeChange={setAge}
-      sex={sex}
-      onSexChange={setSex}
+      gender={gender}
+      onGenderChange={setGender}
       activeDecorations={activeDecorations}
       onActiveDecorationsChange={setActiveDecorations}
       activeAnimations={activeAnimations}

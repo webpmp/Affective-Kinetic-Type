@@ -1699,8 +1699,8 @@ export function ChatArea({
                         {latestAiMessage?.fontSize || 16}px
                       </div>
                       <div>
-                        <span className="text-slate-400">Sex:</span>{" "}
-                        {latestAiMessage?.sex || "Neutral"}
+                        <span className="text-slate-400">Gender:</span>{" "}
+                        {latestAiMessage?.gender || "Neutral"}
                       </div>
                       <div
                         className="truncate"
