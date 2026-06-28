@@ -206,7 +206,10 @@ export function ControlPanel({
   };
 
   return (
-    <div className={`bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full ${isStacked ? 'bg-transparent border-none shadow-none' : ''}`}>
+    <div className={isStacked 
+      ? "overflow-hidden flex flex-col h-full bg-transparent" 
+      : "bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full"
+    }>
       {!isStacked && (
         <div className="p-4 border-b border-slate-100 bg-slate-50 space-y-2.5">
           <div className="flex items-center gap-2">
