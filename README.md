@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/readme-kinetic-type.png" alt="Affective Kinetic Type Screenshot" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
+  <img src="public/readme-kinetic-type-v2.png" alt="Affective Kinetic Type Screenshot" width="100%" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);" />
 </p>
 
 # Affective Kinetic Type
