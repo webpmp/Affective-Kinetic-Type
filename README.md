@@ -101,29 +101,25 @@ Follow these instructions to set up and run the project locally.
    npm install
    ```
 
-## Set Up Environment Variables
+3. **Set Up Environment Variables**
+   Copy the `.env.example` file to a new file named `.env`.
 
-Copy the `.env.example` file to a new file named `.env`.
+   #### Google Gemini
+   If you plan to use Google Gemini, add your API key:
+   ```env
+   GEMINI_API_KEY=your_api_key_here
+   ```
 
-### Google Gemini
+   #### Local AI with LM Studio
+   The application also supports running a local AI model through LM Studio.
 
-If you plan to use Google Gemini, add your API key:
+   1. Install and launch LM Studio.
+   2. Download and load a compatible model.
+   3. Start the OpenAI Compatible Server in LM Studio.
+   4. Open the application’s Settings panel.
+   5. Set AI Provider to LM Studio.
 
-```env
-GEMINI_API_KEY=your_api_key_here
-```
-
-### Local AI with LM Studio
-
-The application also supports running a local AI model through LM Studio.
-
-1. Install and launch LM Studio.
-2. Download and load a compatible model.
-3. Start the OpenAI Compatible Server in LM Studio.
-4. Open the application’s Settings panel.
-5. Set AI Provider to LM Studio.
-
-No changes to the `.env` file are required when using LM Studio. Once the OpenAI Compatible Server is running and AI Provider is set to LM Studio, all AI requests will be sent to your local model instead of Google Gemini.
+   No changes to the `.env` file are required when using LM Studio. Once the OpenAI Compatible Server is running and AI Provider is set to LM Studio, all AI requests will be sent to your local model instead of Google Gemini.
 
 4. **Start the Development Server**
    ```bash
