@@ -169,6 +169,6 @@ The project combines:
 * Accessibility-first interaction design
 * Real-time conversational presentation
 
-into a unified AI communication experience that reacts dynamically to both content and user interaction.
+The result is a unified AI communication experience that reacts dynamically to both content and user interaction.
 
 Rather than presenting AI responses as static blocks of text, Affective Kinetic Type transforms conversation into a living visual system where language, motion, atmosphere, and interface behavior work together to reinforce meaning and emotional tone.
