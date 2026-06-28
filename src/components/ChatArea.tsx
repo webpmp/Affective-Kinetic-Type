@@ -589,6 +589,7 @@ interface ChatAreaProps {
   conversationMode: boolean;
   messageInterval: number;
   layoutMode: "side" | "right-side" | "stacked" | "below" | "hidden";
+  onOpenLMStudioSettings?: () => void;
 }
 
 export function ChatArea({
@@ -605,6 +606,7 @@ export function ChatArea({
   conversationMode,
   messageInterval,
   layoutMode,
+  onOpenLMStudioSettings,
 }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [showSystemThinking, setShowSystemThinking] = useState(false);
@@ -652,7 +654,16 @@ export function ChatArea({
   const showSunrise = messageHash % 3 === 0;
   const segments =
     latestAiMessage?.segments && latestAiMessage.segments.length > 0
-      ? latestAiMessage.segments
+      ? latestAiMessage.segments.map((s: any) => 
+          typeof s === 'string' 
+            ? { text: s, scale: 'normal' as const, alignment: 'center' as const, fontVariant: 'primary' as const } 
+            : {
+                text: s?.text || '',
+                scale: s?.scale || 'normal',
+                alignment: s?.alignment || 'center',
+                fontVariant: s?.fontVariant || 'primary'
+              }
+        )
       : latestAiMessage
         ? [
             {
@@ -775,9 +786,13 @@ export function ChatArea({
     }
 
     // Assistant message with kinetic typography
-    const contentToRender = contentOverride
-      ? contentOverride.text
-      : message.content;
+    const rawContentToRender = (contentOverride && typeof contentOverride === 'object' && 'text' in contentOverride)
+      ? (contentOverride.text || "")
+      : (message.content || "");
+    // Strip the LM Studio settings marker from rendered text
+    const lmStudioSettingsMarker = '[Open LM Studio Settings]';
+    const hasLMStudioLink = typeof rawContentToRender === 'string' ? rawContentToRender.includes(lmStudioSettingsMarker) : false;
+    const contentToRender = typeof rawContentToRender === 'string' ? rawContentToRender.replace(lmStudioSettingsMarker, '').trimEnd() : "";
     const words = contentToRender.split(/(\s+)/); // Split by whitespace but keep the spaces
     const emphasizedWords = message.emphasizedWords || [];
 
@@ -1059,6 +1074,22 @@ export function ChatArea({
             );
           })}
         </motion.div>
+        {/* LM Studio Settings Link */}
+        {hasLMStudioLink && onOpenLMStudioSettings && (
+          <motion.button
+            onClick={onOpenLMStudioSettings}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-violet-200 bg-violet-600/30 hover:bg-violet-600/50 border border-violet-400/40 hover:border-violet-400/60 rounded-lg backdrop-blur-sm transition-all cursor-pointer self-center"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Open LM Studio Settings
+          </motion.button>
+        )}
       </div>
     );
   };
@@ -1134,7 +1165,9 @@ export function ChatArea({
   const effectiveRgb = hexToRgb(effectiveFontColor);
   const isTextLight =
     getLuminance(effectiveRgb.r, effectiveRgb.g, effectiveRgb.b) > 0.5;
-  const containerBgColor = isTextLight ? "#0f172a" : "#ffffff";
+  // containerBgColor is the base behind the gradient — gradient always covers it fully.
+  // Never use pure white to avoid harsh flashes during color transitions.
+  const containerBgColor = isTextLight ? '#0f172a' : '#1e293b';
 
   const isLongText = latestAiMessage?.content
     ? latestAiMessage.content.length > 200
@@ -1142,15 +1175,15 @@ export function ChatArea({
   const backgroundOpacityScalar = isLongText ? 0.3 : 1.0;
 
   return (
-    <div className="flex flex-col flex-grow flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 relative min-h-0">
+    <div className="flex flex-col flex-grow flex-1 rounded-2xl shadow-sm border border-slate-200 relative min-h-0" style={{ backgroundColor: containerBgColor }}>
       {/* AI Response Area (Top) */}
       <div 
-        className={`relative p-6 pb-16 ${!isTabsCollapsed ? "z-20 min-h-[160px] md:min-h-[220px]" : "z-10 min-h-[320px] md:min-h-[400px]"} flex flex-col justify-center items-center flex-grow flex-1 max-h-none h-auto rounded-t-2xl overflow-hidden transition-colors duration-1000`}
+        className={`relative p-6 pb-16 ${!isTabsCollapsed ? "z-20 min-h-[160px] md:min-h-[220px]" : "z-10 min-h-[320px] md:min-h-[400px]"} flex flex-col justify-center items-center flex-grow flex-1 max-h-none h-auto rounded-t-2xl overflow-hidden ${isTyping ? '' : 'transition-colors duration-1000'}`}
         style={{ backgroundColor: containerBgColor }}
       >
-        {/* Environmental Scene & Background Image */}
+        {/* Environmental Scene & Background Image — always rendered, no transition delay during typing */}
         <div
-          className={`absolute inset-0 z-0 transition-all duration-1000 ease-in-out pointer-events-none ${bgType === "gradient" || (bgType === "image" && !bgPrompt) ? "animate-gradient-bg" : ""}`}
+          className={`absolute inset-0 z-0 ${isTyping ? '' : 'transition-all duration-1000 ease-in-out'} pointer-events-none ${bgType === "gradient" || (bgType === "image" && !bgPrompt) ? "animate-gradient-bg" : ""}`}
           style={{
             backgroundImage:
               bgType === "image" && bgPrompt
@@ -1160,8 +1193,8 @@ export function ChatArea({
               bgType === "image" && bgPrompt ? "cover" : undefined,
             backgroundPosition:
               bgType === "image" && bgPrompt ? "center" : undefined,
-            opacity: 1, // Full sharp opacity to act as a complete, gorgeous painting/photo replacement
-            filter: "none", // No blur to maintain pristine visual resolution
+            opacity: 1,
+            filter: "none",
             transform: "none",
           }}
         />
@@ -1667,8 +1700,10 @@ export function ChatArea({
             className="shrink-0 bg-slate-800 border-t border-b border-slate-600 py-4 px-6 shadow-lg text-xs text-slate-300 leading-relaxed overflow-y-auto relative z-10 w-full -mt-[1px]"
           >
                 {activeTab === "thinking" && (
-                  <div className="font-normal not-italic text-[14px] pl-3 border-l-2 border-slate-500/50">
-                    {latestAiMessage?.thinking || "..."}
+                  <div className="font-normal not-italic text-[13px] pl-3 border-l-2 border-slate-500/50 space-y-3 leading-relaxed text-slate-200">
+                    {(latestAiMessage?.thinking || '...').split('\n\n').map((para, i) => (
+                      <p key={i}>{para}</p>
+                    ))}
                   </div>
                 )}
 

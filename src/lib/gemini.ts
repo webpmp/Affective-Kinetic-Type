@@ -64,7 +64,8 @@ export async function generateResponse(
   engagement: number,
   age: number,
   gender: string,
-  enabledFonts: string[]
+  enabledFonts: string[],
+  model: string = 'gemini-3.5-flash'
 ): Promise<{ 
   text: string, 
   segments: TextSegment[], 
@@ -175,13 +176,13 @@ DO NOT repeat the same motion style iteratively.
    - "animation": MUST be 'roll' (for sports with round balls like soccer, tennis, basketball), 'float' (for locations or static objects), 'bounce', 'slide', or 'none'. MUST NOT be 'none' if a sport or location is identified.
    - "placement": MUST be 'background' (faint silhouette landmark watermarks behind text), 'bottom-right' (as a beautiful corner Polaroid travel stamp/badge), or 'none'. CRITICAL: If a sport is identified, placement MUST be 'bottom-right'. If a location is identified, placement MUST be 'bottom-right' or 'background'. NEVER return 'none' for placement or animation if a sport or location is successfully identified.`;
 
-  console.log("Calling Gemini API with model 'gemini-3.5-flash'...");
+  console.log(`Calling Gemini API with model '${model}'...`);
   console.log("History sent to Gemini:", history);
   
   let response;
   try {
     response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: model,
       contents: history,
       config: {
         systemInstruction,

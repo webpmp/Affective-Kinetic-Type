@@ -6,6 +6,9 @@ import { DECORATION_POOL } from './lib/decorations';
 import { ANIMATION_POOL } from './lib/animations';
 import { FONTS } from './lib/fonts';
 import { LayoutTemplate, Maximize2, List } from 'lucide-react';
+import { AIProvider, LMStudioConfig, loadLMStudioConfig, generateLMStudioResponse, testLMStudioConnection } from './lib/aiProvider';
+import { LMStudioModal } from './components/LMStudioModal';
+import { generateSystemThinking } from './lib/systemThinking';
 
 export default function App() {
   const [sentiment, setSentiment] = useState(0);
@@ -42,7 +45,11 @@ export default function App() {
   const [gradientColor2, setGradientColor2] = useState('#2432ff');
   const [gradientDirection, setGradientDirection] = useState('135deg');
   const [weatherContext, setWeatherContext] = useState<string | null>(null);
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [aiProvider, setAIProvider] = useState<AIProvider>('gemini-3.5-flash');
+  const [lmStudioConfig, setLMStudioConfig] = useState<LMStudioConfig>(() => loadLMStudioConfig());
+  const [showLMStudioModal, setShowLMStudioModal] = useState(false);
+  const [lmStudioConnected, setLMStudioConnected] = useState(false);
+  const [lmStudioError, setLMStudioError] = useState<string | undefined>(undefined);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -129,6 +136,25 @@ export default function App() {
     setEngagement(a);
   };
 
+  const handleAIProviderChange = async (provider: AIProvider) => {
+    setAIProvider(provider);
+    if (provider === 'lm-studio') {
+      // Test if LM Studio is reachable with saved config
+      const result = await testLMStudioConnection(lmStudioConfig);
+      if (result.ok) {
+        setLMStudioConnected(true);
+      } else {
+        setLMStudioConnected(false);
+        setShowLMStudioModal(true);
+      }
+    }
+  };
+
+  const handleLMStudioConnect = (config: LMStudioConfig) => {
+    setLMStudioConfig(config);
+    setLMStudioConnected(true);
+  };
+
   const handleClearHistory = () => {
     setMessages([
       {
@@ -174,7 +200,7 @@ export default function App() {
       let weatherOverlay = "none";
       let contextualEffect: any = { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" };
 
-      if (isOfflineMode) {
+      if (aiProvider === 'offline') {
         // Generate a rich, topic-aware simulated response instantly!
         await new Promise(resolve => setTimeout(resolve, 1200)); // simulate thinking latency
         const lower = text.toLowerCase();
@@ -355,14 +381,34 @@ export default function App() {
         }
 
         contextualEffect = { type, subject, imageUrl, animation, placement };
+      } else if (aiProvider === 'lm-studio') {
+        // Build the same system prompt used for Gemini
+        const systemPrompt = `You are an adaptive AI assistant specializing in Kinetic Typography. User Profile: Age ${age}, Gender: ${gender}. Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}. Available fonts: [${enabledFonts.join(', ')}].`;
+        const chatHistory = [...messages, userMessage].map(m => ({ role: m.role, content: m.content }));
+        console.log('[App] LM Studio Config being used for response generation:', lmStudioConfig);
+        const response = await generateLMStudioResponse(lmStudioConfig, chatHistory, systemPrompt);
+        aiText = response.text;
+        segments = response.segments;
+        keywords = response.keywords;
+        thinking = response.thinking;
+        motionStyle = response.motionStyle;
+        newBgPrompt = response.bgPrompt;
+        weatherEffect = response.weatherEffect;
+        baseTheme = response.baseTheme;
+        bgAnimationType = response.bgAnimationType;
+        particleDensity = response.particleDensity;
+        weatherOverlay = response.weatherOverlay;
+        contextualEffect = response.contextualEffect;
       } else {
+        // Gemini model
         const response = await generateResponse(
           [...messages, userMessage], 
           sentiment, 
           engagement,
           age,
           gender,
-          enabledFonts
+          enabledFonts,
+          aiProvider
         );
         aiText = response.text;
         segments = response.segments;
@@ -382,12 +428,35 @@ export default function App() {
         setBgPrompt(newBgPrompt);
       }
 
+      // Generate system thinking narrative from current settings + user message
+      const systemThinkingNarrative = generateSystemThinking({
+        userMessage: text,
+        sentiment,
+        engagement,
+        age,
+        gender,
+        enabledFonts,
+        fontSize,
+        fontColor,
+        motionStyle,
+        activeAnimations,
+        activeDecorations,
+        emotionInfluence,
+        animationIntensity,
+        maxAnimatedKeywords,
+        animationStability,
+        wcagLevel,
+        wcagStrictMode,
+        bgAnimationType,
+        baseTheme,
+      });
+
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: aiText,
         segments: segments,
         emphasizedWords: keywords,
-        thinking: thinking,
+        thinking: systemThinkingNarrative,
         motionStyle: motionStyle,
         sentiment,
         engagement,
@@ -414,17 +483,36 @@ export default function App() {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error: any) {
       console.error("Error generating response:", error);
-      const isRateLimit = error && (
+      const errorMsg = error?.message || '';
+      
+      const isLMStudioError = aiProvider === 'lm-studio';
+      const isRateLimit = !isLMStudioError && error && (
         error.status === 429 || 
-        (error.message && error.message.includes('429')) || 
-        (error.message && error.message.toLowerCase().includes('quota')) ||
-        (error.message && error.message.toLowerCase().includes('rate limit')) ||
-        (error.message && error.message.toLowerCase().includes('resource_exhausted'))
+        (errorMsg.includes('429')) || 
+        (errorMsg.toLowerCase().includes('quota')) ||
+        (errorMsg.toLowerCase().includes('rate limit')) ||
+        (errorMsg.toLowerCase().includes('resource_exhausted'))
       );
 
-      const errorMessage = isRateLimit 
-        ? "We are experiencing a temporary rush of thoughts! Please wait about 15-20 seconds before your next message so the AI can catch its breath. 🌬️"
-        : "I'm sorry, I encountered an error processing your request.";
+      let errorMessage: string;
+      let errorThinking: string;
+
+      if (isLMStudioError) {
+        const needsModel = errorMsg.toLowerCase().includes('multiple models') || errorMsg.toLowerCase().includes('specify a model');
+        errorMessage = needsModel
+          ? "LM Studio has multiple models loaded. Please select a specific model to use. ⚙️ [Open LM Studio Settings]"
+          : `LM Studio error: ${errorMsg || 'Connection failed.'} ⚙️ [Open LM Studio Settings]`;
+        errorThinking = `LM Studio returned an error: ${errorMsg}`;
+        // Auto-open the config modal so user can fix settings
+        setLMStudioError(errorMsg);
+        setShowLMStudioModal(true);
+      } else if (isRateLimit) {
+        errorMessage = "We are experiencing a temporary rush of thoughts! Please wait about 15-20 seconds before your next message so the AI can catch its breath. 🌬️";
+        errorThinking = `The API returned a rate limit (429) or other request error. Details: ${errorMsg}`;
+      } else {
+        errorMessage = `I encountered an error processing your request. Details: ${errorMsg || 'Connection failed.'}`;
+        errorThinking = `The API returned an error: ${errorMsg}`;
+      }
 
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -432,18 +520,18 @@ export default function App() {
         segments: [
           { 
             text: errorMessage, 
-            scale: "large", 
+            scale: isLMStudioError ? "normal" : "large", 
             alignment: "center", 
             fontVariant: enabledFonts[0] || "Inter" 
           }
         ],
-        emphasizedWords: isRateLimit ? [{ word: "rush of thoughts!" }] : [],
-        thinking: "The API returned a rate limit (429) or other request error, showing fallback message.",
+        emphasizedWords: isRateLimit ? [{ word: "rush of thoughts!" }] : isLMStudioError ? [{ word: "Open LM Studio Settings" }] : [],
+        thinking: errorThinking,
         motionStyle: "drift-down",
         sentiment: -0.3,
         engagement: -0.2,
         fontSize,
-        fontColor: isRateLimit ? "#f43f5e" : fontColor,
+        fontColor: isRateLimit ? "#f43f5e" : isLMStudioError ? "#7c3aed" : fontColor,
         activeDecorations: [],
         activeAnimations: [],
         emotionInfluence,
@@ -520,8 +608,9 @@ export default function App() {
       onConversationModeChange={setConversationMode}
       messageInterval={messageInterval}
       onMessageIntervalChange={setMessageInterval}
-      isOfflineMode={isOfflineMode}
-      onOfflineModeChange={setIsOfflineMode}
+      aiProvider={aiProvider}
+      onAIProviderChange={handleAIProviderChange}
+      onOpenLMStudioSettings={() => setShowLMStudioModal(true)}
     />
   );
 
@@ -585,6 +674,7 @@ export default function App() {
             conversationMode={conversationMode}
             messageInterval={messageInterval}
             layoutMode={layoutMode}
+            onOpenLMStudioSettings={() => setShowLMStudioModal(true)}
           />
         </div>
 
@@ -615,6 +705,14 @@ export default function App() {
           </a>
         </p>
       </footer>
+
+      {/* LM Studio Configuration Modal */}
+      <LMStudioModal
+        isOpen={showLMStudioModal}
+        onClose={() => { setShowLMStudioModal(false); setLMStudioError(undefined); }}
+        onConnect={handleLMStudioConnect}
+        initialError={lmStudioError}
+      />
     </div>
   );
 }

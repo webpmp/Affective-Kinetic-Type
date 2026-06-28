@@ -4,6 +4,7 @@ import { Settings, Type, Palette, Move, User, BrainCircuit, ChevronDown, Chevron
 import { DECORATION_POOL } from '../lib/decorations';
 import { ANIMATION_POOL } from '../lib/animations';
 import { KineticWord } from './KineticWord';
+import { AIProvider, AI_PROVIDERS, AI_PROVIDER_GROUPS } from '../lib/aiProvider';
 
 interface ControlPanelProps {
   layout?: 'side' | 'right-side' | 'stacked' | 'below' | 'hidden';
@@ -48,8 +49,9 @@ interface ControlPanelProps {
   onConversationModeChange: (val: boolean) => void;
   messageInterval: number;
   onMessageIntervalChange: (val: number) => void;
-  isOfflineMode: boolean;
-  onOfflineModeChange: (val: boolean) => void;
+  aiProvider: AIProvider;
+  onAIProviderChange: (provider: AIProvider) => void;
+  onOpenLMStudioSettings?: () => void;
 }
 
 import { FONTS } from '../lib/fonts';
@@ -99,8 +101,9 @@ export function ControlPanel({
   onConversationModeChange,
   messageInterval,
   onMessageIntervalChange,
-  isOfflineMode,
-  onOfflineModeChange,
+  aiProvider,
+  onAIProviderChange,
+  onOpenLMStudioSettings,
 }: ControlPanelProps) {
 
   const isStacked = layout === 'stacked' || layout === 'below';
@@ -205,47 +208,81 @@ export function ControlPanel({
   return (
     <div className={`bg-white/80 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full ${isStacked ? 'bg-transparent border-none shadow-none' : ''}`}>
       {!isStacked && (
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 space-y-2.5">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-500" />
             <h2 className="font-semibold text-slate-800">Control Panel</h2>
           </div>
-          <label className="flex items-center gap-2 cursor-pointer bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg border border-amber-200 transition-colors">
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider select-none">Simulate Offline</span>
-            <input
-              type="checkbox"
-              checked={isOfflineMode}
-              onChange={(e) => onOfflineModeChange(e.target.checked)}
-              className="rounded text-amber-600 w-3.5 h-3.5 cursor-pointer focus:ring-0"
-            />
-          </label>
+          <div className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors">
+            <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider select-none whitespace-nowrap">AI Provider</span>
+            <select
+              value={aiProvider}
+              onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
+              className="flex-1 text-[11px] font-semibold text-indigo-800 bg-transparent border-none focus:ring-0 focus:outline-none cursor-pointer py-0 pr-4 pl-0 appearance-auto"
+            >
+              {AI_PROVIDER_GROUPS.map(group => (
+                <optgroup key={group} label={group}>
+                  {AI_PROVIDERS.filter(p => p.group === group).map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {aiProvider === 'lm-studio' && onOpenLMStudioSettings && (
+              <button
+                onClick={onOpenLMStudioSettings}
+                title="Configure LM Studio"
+                className="p-1 rounded-md text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       <div className={containerClasses}>
-        {/* Offline Simulation Card (visible only in stacked layout) */}
+        {/* AI Provider Card (visible only in stacked layout) */}
         {isStacked && (
-          <section className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-4 min-w-[220px] max-w-[220px] shrink-0 h-full flex flex-col justify-between">
+          <section className="bg-indigo-50/40 border border-indigo-200/60 rounded-xl p-4 min-w-[220px] max-w-[220px] shrink-0 h-full flex flex-col justify-between">
             <div className="space-y-1 flex-1 flex flex-col">
-              <div className="w-full flex items-center justify-between border-b border-amber-200/60 pb-1.5 mb-2 shrink-0 select-none h-8">
-                <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase tracking-wider">
-                  <Terminal className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                  <span>Simulation Mode</span>
+              <div className="w-full flex items-center justify-between border-b border-indigo-200/60 pb-1.5 mb-2 shrink-0 select-none h-8">
+                <div className="flex items-center gap-1.5 text-indigo-800 font-bold text-xs uppercase tracking-wider">
+                  <Terminal className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+                  <span>AI Provider</span>
                 </div>
+                {aiProvider === 'lm-studio' && onOpenLMStudioSettings && (
+                  <button
+                    onClick={onOpenLMStudioSettings}
+                    title="Configure LM Studio"
+                    className="p-1 rounded-md text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100 transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
-              <p className="text-[10px] text-amber-600 leading-normal mt-1 flex-1 overflow-y-auto custom-scrollbar">
-                Test kinetic animations, tactical diagrams, and WCAG contrast offline without hits.
+              <p className="text-[10px] text-indigo-600 leading-normal mt-1 flex-1 overflow-y-auto custom-scrollbar">
+                {aiProvider === 'offline'
+                  ? 'Test kinetic animations, tactical diagrams, and WCAG contrast offline without API hits.'
+                  : aiProvider === 'lm-studio'
+                  ? 'Connected to a local LLM via LM Studio for private, offline AI parsing.'
+                  : `Using ${AI_PROVIDERS.find(p => p.id === aiProvider)?.label || aiProvider} for AI-powered responses.`
+                }
               </p>
             </div>
-            <label className="flex items-center justify-between gap-2 cursor-pointer bg-white hover:bg-amber-100/50 px-3 py-2 rounded-lg border border-amber-200 transition-colors mt-4">
-              <span className="text-xs font-semibold text-amber-800 select-none">Offline Mode</span>
-              <input
-                type="checkbox"
-                checked={isOfflineMode}
-                onChange={(e) => onOfflineModeChange(e.target.checked)}
-                className="rounded text-amber-600 w-4 h-4 cursor-pointer focus:ring-0"
-              />
-            </label>
+            <select
+              value={aiProvider}
+              onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
+              className="w-full mt-4 px-3 py-2 text-xs font-semibold text-indigo-800 bg-white hover:bg-indigo-50/50 border border-indigo-200 rounded-lg cursor-pointer focus:ring-2 focus:ring-indigo-500/30 focus:outline-none transition-colors appearance-auto"
+            >
+              {AI_PROVIDER_GROUPS.map(group => (
+                <optgroup key={group} label={group}>
+                  {AI_PROVIDERS.filter(p => p.group === group).map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </section>
         )}
         

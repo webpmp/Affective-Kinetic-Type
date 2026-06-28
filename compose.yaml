@@ -13,7 +13,7 @@ services:
       context: .
     user: "root"
     ports:
-      - 3000:3000
+      - 3002:3000
     environment:
       - NODE_ENV=development
       - GEMINI_API_KEY=${GEMINI_API_KEY}
