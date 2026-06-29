@@ -382,8 +382,7 @@ export default function App() {
 
         contextualEffect = { type, subject, imageUrl, animation, placement };
       } else if (aiProvider === 'lm-studio') {
-        // Build the same system prompt used for Gemini
-        const systemPrompt = `You are an adaptive AI assistant specializing in Kinetic Typography. User Profile: Age ${age}, Gender: ${gender}. Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}. Available fonts: [${enabledFonts.join(', ')}].`;
+        const systemPrompt = `You are an adaptive AI assistant specializing in Kinetic Typography. User Profile: Age ${age}, Gender: ${gender}. Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}. Available fonts: [${enabledFonts.join(', ')}]. CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.`;
         const chatHistory = [...messages, userMessage].map(m => ({ role: m.role, content: m.content }));
         console.log('[App] LM Studio Config being used for response generation:', lmStudioConfig);
         const response = await generateLMStudioResponse(lmStudioConfig, chatHistory, systemPrompt);

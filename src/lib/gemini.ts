@@ -101,6 +101,8 @@ The user's current emotional state is defined by a circumplex model:
 Sentiment (Negative to Positive): ${sentiment.toFixed(2)} (-1 to 1)
 Engagement (Low to High): ${engagement.toFixed(2)} (-1 to 1)
 
+CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.
+
 EMPHASIS PRIORITY RULES:
 Prioritize emphasis for:
 1. emotionally charged words
