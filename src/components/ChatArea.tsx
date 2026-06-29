@@ -72,12 +72,12 @@ interface GenerationAmbientLayerProps {
 }
 
 export function GenerationAmbientLayer({
-  userMessageContent,
+  userMessageContent = "",
   sentiment,
   engagement,
   wcagStrictMode,
 }: GenerationAmbientLayerProps) {
-  const content = userMessageContent.toLowerCase();
+  const content = (userMessageContent || "").toLowerCase();
 
   const getDetectedSport = (): string | null => {
     const hasWord = (...words: string[]) => 
@@ -741,11 +741,7 @@ export function ChatArea({
     }
   }, [isTyping]);
 
-  useEffect(() => {
-    if (showSystemThinking) {
-      setIsTabsCollapsed(false);
-    }
-  }, [showSystemThinking]);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -998,6 +994,7 @@ export function ChatArea({
             let matchedEmphasizedWord = null;
             if (cleanWord) {
               matchedEmphasizedWord = allowedEmphasizedWords.find((ew) => {
+                if (!ew || typeof ew !== 'object' || !ew.word) return false;
                 const phraseWords = ew.word.toLowerCase().split(/\s+/);
                 return phraseWords.includes(cleanWord);
               });
@@ -1743,6 +1740,11 @@ export function ChatArea({
                       >
                         <span className="text-slate-400">Motion:</span>{" "}
                         {latestAiMessage?.motionStyle || "default"}
+                        {latestAiMessage?.activeAnimations && latestAiMessage.activeAnimations.length > 0 && (
+                          <span className="text-[10px] text-indigo-300 ml-1.5 font-normal">
+                            ({latestAiMessage.activeAnimations.join(", ")})
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-slate-400">Age:</span>{" "}

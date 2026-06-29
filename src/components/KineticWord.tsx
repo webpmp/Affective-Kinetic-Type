@@ -313,8 +313,13 @@ export function KineticWord({
   
   // Q1 (Positive, High Engagement)
   if (finalSelectedAnimation === 'bounce') {
-    animateProps.y = [0, -6 * finalAnimationIntensity, 0];
-    transitionProps.y = { repeat: Infinity, duration: aliveDuration * 0.5, ease: "easeOut", repeatDelay: 0.5 / finalAnimationIntensity };
+    const yVal = -24 * finalAnimationIntensity;
+    const sVal = 1.1;
+    animateProps.y = [0, yVal];
+    animateProps.scale = [finalScale, finalScale * sVal];
+    const duration = aliveDuration * 1.05;
+    transitionProps.y = { repeat: Infinity, repeatType: "reverse", duration, ease: [0.36, 0, 0.66, -0.56] };
+    transitionProps.scale = { repeat: Infinity, repeatType: "reverse", duration, ease: [0.36, 0, 0.66, -0.56] };
   } else if (finalSelectedAnimation === 'spin') {
     animateProps.rotate = [-4 * finalAnimationIntensity, 4 * finalAnimationIntensity];
     transitionProps.rotate = { repeat: Infinity, repeatType: "reverse", duration: aliveDuration * 1.5, ease: "easeInOut" };
@@ -352,9 +357,27 @@ export function KineticWord({
     animateProps.x = [-w, w, -w/2, w/2, 0];
     transitionProps.rotate = { repeat: Infinity, duration: 0.5 / finalAnimationIntensity, ease: "linear", repeatDelay: aliveDuration };
     transitionProps.x = { repeat: Infinity, duration: 0.5 / finalAnimationIntensity, ease: "linear", repeatDelay: aliveDuration };
-  
+  } else if (finalSelectedAnimation === 'stretch') {
+    animateProps.scaleY = [finalScale, finalScale * (1 + 0.4 * finalAnimationIntensity), finalScale * (1 - 0.2 * finalAnimationIntensity), finalScale];
+    animateProps.scaleX = [finalScale, finalScale * (1 - 0.15 * finalAnimationIntensity), finalScale * (1 + 0.15 * finalAnimationIntensity), finalScale];
+    transitionProps.scaleY = { repeat: Infinity, duration: aliveDuration * 1.05, ease: "easeInOut" };
+    transitionProps.scaleX = { repeat: Infinity, duration: aliveDuration * 1.05, ease: "easeInOut" };
+  } else if (finalSelectedAnimation === 'neon') {
+    animateProps.opacity = [1, 0.7, 1, 1, 0.4, 1];
+    animateProps.textShadow = [
+      `0 0 7px ${finalColor}, 0 0 20px ${finalColor}, 0 0 40px ${finalColor}`,
+      "none",
+      `0 0 7px ${finalColor}, 0 0 20px ${finalColor}`,
+      `0 0 7px ${finalColor}, 0 0 20px ${finalColor}, 0 0 60px ${finalColor}`,
+      "none",
+      `0 0 7px ${finalColor}, 0 0 20px ${finalColor}, 0 0 40px ${finalColor}`
+    ];
+    const duration = aliveDuration * 1.05;
+    transitionProps.opacity = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.textShadow = { repeat: Infinity, duration, ease: "easeInOut" };
+  }
   // Q2 (Negative, High Engagement)
-  } else if (finalSelectedAnimation === 'shake') {
+  else if (finalSelectedAnimation === 'shake') {
     const s = 2 * finalAnimationIntensity;
     animateProps.x = [-s, s, -s, s, 0];
     transitionProps.x = { repeat: Infinity, duration: 0.4 / finalAnimationIntensity, ease: "easeInOut", repeatDelay: aliveDuration };
@@ -368,11 +391,29 @@ export function KineticWord({
     animateProps.x = [-s, s, -s, s, -s, s, 0];
     transitionProps.x = { repeat: Infinity, duration: 0.2 / finalAnimationIntensity, ease: "linear", repeatDelay: aliveDuration * 0.5 };
   } else if (finalSelectedAnimation === 'glitch') {
-    const g = 3 * finalAnimationIntensity;
-    animateProps.x = [0, -g, g, -g/3, g*0.6, 0];
-    animateProps.skewX = [0, 10 * finalAnimationIntensity, -10 * finalAnimationIntensity, 5 * finalAnimationIntensity, 0];
-    transitionProps.x = { repeat: Infinity, duration: 0.3 / finalAnimationIntensity, ease: "linear", repeatDelay: aliveDuration * 1.2 };
-    transitionProps.skewX = { repeat: Infinity, duration: 0.3 / finalAnimationIntensity, ease: "linear", repeatDelay: aliveDuration * 1.2 };
+    const xVal = [-3, 3, -2, 1].map(v => v * finalAnimationIntensity);
+    const yVal = [2, -1, 1, -2].map(v => v * finalAnimationIntensity);
+    const skewVal = [-4, 3, -2, 1].map(v => v * finalAnimationIntensity);
+    
+    animateProps.x = [0, xVal[0], xVal[1], xVal[2], xVal[3], 0];
+    animateProps.y = [0, yVal[0], yVal[1], yVal[2], yVal[3], 0];
+    animateProps.skewX = [0, skewVal[0], skewVal[1], skewVal[2], skewVal[3], 0];
+    animateProps.opacity = [1, 0.8, 1, 1, 0.9, 1];
+    animateProps.clipPath = [
+      "inset(0% 0% 0% 0%)",
+      "inset(0% 0% 0% 0%)",
+      "inset(20% 0% 30% 0%)",
+      "inset(50% 0% 10% 0%)",
+      "inset(0% 0% 0% 0%)",
+      "inset(0% 0% 0% 0%)"
+    ];
+    
+    const duration = aliveDuration * 1.05;
+    transitionProps.x = { repeat: Infinity, duration, ease: "linear" };
+    transitionProps.y = { repeat: Infinity, duration, ease: "linear" };
+    transitionProps.skewX = { repeat: Infinity, duration, ease: "linear" };
+    transitionProps.opacity = { repeat: Infinity, duration, ease: "linear" };
+    transitionProps.clipPath = { repeat: Infinity, duration, ease: "linear" };
   } else if (finalSelectedAnimation === 'tremble') {
     const t = 1 * finalAnimationIntensity;
     animateProps.x = [-t, t, -t, t];
@@ -399,6 +440,24 @@ export function KineticWord({
     animateProps.y = [0, j/2, 0];
     transitionProps.x = { repeat: Infinity, duration: 0.15 / finalAnimationIntensity, ease: "easeOut", repeatDelay: aliveDuration * 1.2 };
     transitionProps.y = { repeat: Infinity, duration: 0.15 / finalAnimationIntensity, ease: "easeOut", repeatDelay: aliveDuration * 1.2 };
+
+  } else if (finalSelectedAnimation === 'shatter') {
+    const sx = 5 * finalAnimationIntensity;
+    const sy = -8 * finalAnimationIntensity;
+    const sr = 10 * finalAnimationIntensity;
+    
+    animateProps.x = [0, sx, -0.5 * sx, 0];
+    animateProps.y = [0, sy, -0.3 * sy, 0];
+    animateProps.rotate = [0, sr, -0.5 * sr, 0];
+    animateProps.scale = [finalScale, finalScale * 0.9, finalScale * 1.05, finalScale];
+    animateProps.opacity = [1, 0.6, 0.8, 1];
+    
+    const duration = aliveDuration * 1.05;
+    transitionProps.x = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.y = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.rotate = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.scale = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.opacity = { repeat: Infinity, duration, ease: "easeInOut" };
 
   // Q3 (Negative, Low Engagement)
   } else if (finalSelectedAnimation === 'sink') {
@@ -441,10 +500,20 @@ export function KineticWord({
     animateProps.scale = [finalScale, finalScale * Math.max(0.5, 1 - 0.2 * finalAnimationIntensity)];
     transitionProps.scale = { repeat: Infinity, repeatType: "reverse", duration: aliveDuration * 2, ease: "easeInOut" };
 
+  } else if (finalSelectedAnimation === 'rotate') {
+    const rxVal = 20 * finalAnimationIntensity;
+    const ryVal = 10 * finalAnimationIntensity;
+    animateProps.rotateY = [0, rxVal, 0, -rxVal, 0];
+    animateProps.rotateX = [0, ryVal, 0, -ryVal, 0];
+    const duration = aliveDuration * 1.05;
+    transitionProps.rotateY = { repeat: Infinity, duration, ease: "easeInOut" };
+    transitionProps.rotateX = { repeat: Infinity, duration, ease: "easeInOut" };
   // Q4 (Positive, Low Engagement)
   } else if (finalSelectedAnimation === 'wave') {
-    animateProps.y = [-3 * finalAnimationIntensity, 3 * finalAnimationIntensity];
-    transitionProps.y = { repeat: Infinity, repeatType: "reverse", duration: aliveDuration, ease: "easeInOut" };
+    animateProps.y = [0, -18 * finalAnimationIntensity, 8 * finalAnimationIntensity, 0];
+    animateProps.rotate = [0, -3 * finalAnimationIntensity, 1 * finalAnimationIntensity, 0];
+    transitionProps.y = { repeat: Infinity, duration: aliveDuration * 1.05, ease: "easeInOut" };
+    transitionProps.rotate = { repeat: Infinity, duration: aliveDuration * 1.05, ease: "easeInOut" };
   } else if (finalSelectedAnimation === 'float') {
     animateProps.y = [-4 * finalAnimationIntensity, 0];
     transitionProps.y = { repeat: Infinity, repeatType: "reverse", duration: aliveDuration * 1.2, ease: "easeInOut" };
@@ -488,14 +557,55 @@ export function KineticWord({
     return Math.min(max, Math.max(min, val));
   };
 
-  if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.9, 1.1);
-  if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.9, 1.1);
-  if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.9, 1.1);
-  if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4, 4);
-  if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -4, 4);
-  if (animateProps.rotate) animateProps.rotate = clampArrayOrValue(animateProps.rotate, -2, 2);
-  if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -5, 5);
-  if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2, 2);
+  if (finalSelectedAnimation === 'stretch') {
+    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.4, 2.0);
+    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.4, 2.0);
+  } else {
+    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.9, 1.1);
+    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.9, 1.1);
+  }
+  if (finalSelectedAnimation === 'bounce') {
+    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.7, 1.4);
+    if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -30, 10);
+    if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4, 4);
+    if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2, 2);
+  } else {
+    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.9, 1.1);
+    if (finalSelectedAnimation === 'glitch') {
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -10, 10);
+      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -10, 10);
+      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -15, 15);
+    } else if (finalSelectedAnimation === 'shatter') {
+      if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.5, 1.5);
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -20, 20);
+      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -20, 20);
+      if (animateProps.rotate) animateProps.rotate = clampArrayOrValue(animateProps.rotate, -30, 30);
+    } else {
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4, 4);
+      if (animateProps.y) {
+        if (finalSelectedAnimation === 'wave') {
+          animateProps.y = clampArrayOrValue(animateProps.y, -25, 25);
+        } else {
+          animateProps.y = clampArrayOrValue(animateProps.y, -4, 4);
+        }
+      }
+      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2, 2);
+    }
+  }
+  if (animateProps.rotate) {
+    if (finalSelectedAnimation === 'wave') {
+      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -5, 5);
+    } else {
+      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -2, 2);
+    }
+  }
+  if (finalSelectedAnimation === 'rotate') {
+    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -45, 45);
+    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -45, 45);
+  } else {
+    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -5, 5);
+    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -5, 5);
+  }
   if (animateProps.letterSpacing) {
     delete animateProps.letterSpacing;
     if (transitionProps.letterSpacing) delete transitionProps.letterSpacing;
@@ -517,6 +627,39 @@ export function KineticWord({
       const bgToCheck = finalCssDecoration.backgroundColor ? finalCssDecoration.backgroundColor as string : backgroundColor;
       animateProps.color = animateProps.color.map((c: string) => ensureContrast(c, bgToCheck, requiredContrast));
     }
+  }
+
+  if (finalSelectedAnimation === 'glitch' || finalSelectedAnimation === 'wave' || finalSelectedAnimation === 'stretch' || finalSelectedAnimation === 'rotate' || finalSelectedAnimation === 'bounce' || finalSelectedAnimation === 'shatter' || finalSelectedAnimation === 'neon') {
+    const chars = word.split('');
+    return (
+      <span className={`kinetic-text kt-${finalSelectedAnimation} relative inline-flex mx-[0.1em] align-baseline`}>
+        {chars.map((char, charIdx) => {
+          // Generate unique directions for Shatter animation
+          const sx = (Math.sin(charIdx) * 12).toFixed(1);
+          const sy = (Math.cos(charIdx) * -15).toFixed(1);
+          const sr = (Math.sin(charIdx * 2.5) * 20).toFixed(1);
+          return (
+            <span
+              key={charIdx}
+              className="kt-char"
+              style={{
+                '--i': charIdx,
+                '--sx': `${sx}px`,
+                '--sy': `${sy}px`,
+                '--sr': `${sr}deg`,
+                display: 'inline-block',
+                fontWeight: finalWeight,
+                fontFamily: finalFont,
+                color: finalColor,
+                ...finalCssDecoration
+              } as React.CSSProperties}
+            >
+              {char === ' ' ? '\u00A0' : char}
+            </span>
+          );
+        })}
+      </span>
+    );
   }
 
   return (
@@ -552,4 +695,3 @@ export function KineticWord({
     </span>
   );
 }
-

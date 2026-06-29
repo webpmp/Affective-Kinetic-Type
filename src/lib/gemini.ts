@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const apiKey = process.env.GEMINI_API_KEY || "";
-console.log("[Affective Kinetic Type] Gemini API Key loaded, length:", apiKey.length);
+const rawApiKey = process.env.GEMINI_API_KEY || "";
+const apiKey = rawApiKey.replace(/^["']|["']$/g, "").trim();
+console.log("[Affective Kinetic Type] Gemini API Key loaded:", apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-6)} (length: ${apiKey.length})` : "EMPTY");
 if (!apiKey) {
   console.error("[Affective Kinetic Type] WARNING: Gemini API Key is missing or empty! Make sure GEMINI_API_KEY is defined in your environment or .env file.");
 }
@@ -65,7 +66,7 @@ export async function generateResponse(
   age: number,
   gender: string,
   enabledFonts: string[],
-  model: string = 'gemini-3.5-flash'
+  model: string = 'gemini-2.0-flash-lite'
 ): Promise<{ 
   text: string, 
   segments: TextSegment[], 
@@ -142,7 +143,7 @@ Generate cohesive atmospheric scenes by inferring the PRIMARY CONVERSATIONAL SCE
 
 You must return a JSON object containing eleven fields:
 1. "thinking": A brief explanation of how the user's latent emotional state influenced your response structure, affective rendering, and visual pacing.
-2. "segments": Your response to the user, split into expressive chunks. Vary the density. Some can be single words, others full sentences. Return an array of objects. Each object must have:
+2. "segments": A natural, conversational response to the user, split into expressive chunks (such as complete clauses or full sentences) to create a visual rhythm. Avoid returning isolated single-word tags or keyword labels; the combined segments MUST read together as a fully formed, coherent conversational reply. Return an array of objects. Each object must have:
    - "text": The textual content of the chunk.
    - "scale": Typographic scale ("small", "normal", "large", "oversized", "massive"). Use oversized/massive rarely, for high emotional impact.
    - "alignment": Spatial placement ("left", "center", "right", "justify"). Vary to create cascading or asymmetrical structures.
@@ -284,8 +285,9 @@ DO NOT repeat the same motion style iteratively.
     throw apiError;
   }
 
+  let jsonStr = "";
   try {
-    const jsonStr = response.text?.trim() || "{}";
+    jsonStr = response.text?.trim() || "{}";
     const result = JSON.parse(jsonStr);
     const segments = result.segments || ["I'm not sure how to respond."];
     return {
@@ -303,12 +305,41 @@ DO NOT repeat the same motion style iteratively.
       contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
     };
   } catch (e) {
-    console.error("Failed to parse JSON response:", e);
+    console.error("Failed to parse JSON response, attempting robust recovery:", e);
+    
+    // Try to extract segments via regex
+    let recoveredSegments: TextSegment[] = [];
+    const textSegmentRegex = /"text"\s*:\s*"([^"]+)"/g;
+    let match;
+    while ((match = textSegmentRegex.exec(jsonStr)) !== null) {
+      recoveredSegments.push({
+        text: match[1],
+        scale: "normal",
+        alignment: "center",
+        fontVariant: enabledFonts[0] || "Inter"
+      });
+    }
+
+    if (recoveredSegments.length === 0) {
+      // Try to strip everything except prose
+      const cleanProse = jsonStr
+        .replace(/\{[\s\S]*\}/g, "") // remove brackets
+        .replace(/"[^"]+"\s*:\s*"[^"]*"/g, "") // remove KV pairs
+        .replace(/[{}["\]]+/g, "") // remove remaining JSON structures
+        .trim();
+      recoveredSegments.push({
+        text: cleanProse || "I received your message but encountered a formatting issue. Let's try again.",
+        scale: "normal",
+        alignment: "center",
+        fontVariant: enabledFonts[0] || "Inter"
+      });
+    }
+
     return {
-      text: response.text || "Error generating response.",
-      segments: [{ text: response.text || "Error generating response.", scale: "normal", alignment: "left", fontVariant: enabledFonts[0] || "Inter" }],
+      text: recoveredSegments.map(s => s.text).join(" "),
+      segments: recoveredSegments,
       keywords: [],
-      thinking: "",
+      thinking: "The response was returned with minor formatting errors, which the system automatically recovered.",
       motionStyle: "default",
       bgPrompt: "beautiful landscape, realistic, 8k",
       weatherEffect: "none",

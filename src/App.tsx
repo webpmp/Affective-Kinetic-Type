@@ -45,7 +45,7 @@ export default function App() {
   const [gradientColor2, setGradientColor2] = useState('#2432ff');
   const [gradientDirection, setGradientDirection] = useState('135deg');
   const [weatherContext, setWeatherContext] = useState<string | null>(null);
-  const [aiProvider, setAIProvider] = useState<AIProvider>('gemini-3.5-flash');
+  const [aiProvider, setAIProvider] = useState<AIProvider>('lm-studio');
   const [lmStudioConfig, setLMStudioConfig] = useState<LMStudioConfig>(() => loadLMStudioConfig());
   const [showLMStudioModal, setShowLMStudioModal] = useState(false);
   const [lmStudioConnected, setLMStudioConnected] = useState(false);

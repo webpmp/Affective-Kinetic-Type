@@ -17,6 +17,9 @@ export const ANIMATION_POOL: TextAnimation[] = [
   { id: 'sparkle', name: 'Sparkle', sentiment: 0.9, engagement: 0.4 },
   { id: 'zoom-bounce', name: 'Zoom Bounce', sentiment: 0.7, engagement: 0.7 },
   { id: 'wobble', name: 'Wobble', sentiment: 0.4, engagement: 0.6 },
+  { id: 'stretch', name: 'Stretch', sentiment: 0.7, engagement: 0.8 },
+  { id: 'rotate', name: 'Rotate', sentiment: 0.1, engagement: 0.2 },
+  { id: 'neon', name: 'Neon', sentiment: 0.8, engagement: 0.7 },
   
   // Q2: Negative, High Engagement
   { id: 'shake', name: 'Shake', sentiment: -0.6, engagement: 0.8 },
@@ -28,6 +31,7 @@ export const ANIMATION_POOL: TextAnimation[] = [
   { id: 'vibrate', name: 'Vibrate', sentiment: -0.3, engagement: 0.9 },
   { id: 'flash', name: 'Flash', sentiment: -0.5, engagement: 0.7 },
   { id: 'jerk', name: 'Jerk', sentiment: -0.6, engagement: 0.6 },
+  { id: 'shatter', name: 'Shatter', sentiment: -0.8, engagement: 0.9 },
   
   // Q3: Negative, Low Engagement
   { id: 'sink', name: 'Sink', sentiment: -0.6, engagement: -0.6 },

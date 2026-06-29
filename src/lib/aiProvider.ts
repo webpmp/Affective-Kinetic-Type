@@ -1,11 +1,11 @@
 // AI Provider type definitions, LM Studio connection & generation utilities
 
 export type AIProvider =
-  | 'gemini-2.5-flash'
-  | 'gemini-2.5-pro'
-  | 'gemini-2.0-flash'
   | 'gemini-2.0-flash-lite'
+  | 'gemini-2.0-flash'
+  | 'gemini-2.5-flash'
   | 'gemini-3.5-flash'
+  | 'gemini-2.5-pro'
   | 'lm-studio'
   | 'offline';
 
@@ -16,11 +16,11 @@ export interface AIProviderOption {
 }
 
 export const AI_PROVIDERS: AIProviderOption[] = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', group: 'Gemini' },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', group: 'Gemini' },
-  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', group: 'Gemini' },
   { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', group: 'Gemini' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', group: 'Gemini' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', group: 'Gemini' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', group: 'Gemini' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', group: 'Gemini' },
   { id: 'lm-studio', label: 'LM Studio', group: 'Local' },
   { id: 'offline', label: 'Offline Mode', group: 'Simulation' },
 ];
@@ -150,20 +150,54 @@ export async function generateLMStudioResponse(
 
   console.log('[LM Studio] Raw response:', rawContent);
 
-  // Robustly extract JSON: try multiple strategies
   const tryParseJSON = (str: string): any | null => {
     if (!str.trim()) return null;
-    // Strategy 1: direct parse
-    try { return JSON.parse(str.trim()); } catch {}
-    // Strategy 2: strip markdown code fences anywhere in the string
-    const fenceMatch = str.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenceMatch) { try { return JSON.parse(fenceMatch[1].trim()); } catch {} }
-    // Strategy 3: extract first {...} block
-    const braceStart = str.indexOf('{');
-    const braceEnd = str.lastIndexOf('}');
-    if (braceStart !== -1 && braceEnd > braceStart) {
-      try { return JSON.parse(str.slice(braceStart, braceEnd + 1)); } catch {}
+    
+    const isValidRoot = (obj: any) => {
+      return obj && typeof obj === 'object' && ('segments' in obj || 'thinking' in obj || 'motionStyle' in obj || 'bgPrompt' in obj);
+    };
+
+    // 1. Direct parse
+    try {
+      const parsed = JSON.parse(str.trim());
+      if (isValidRoot(parsed)) return parsed;
+    } catch {}
+    
+    // 2. Scan all '{' positions forward to find a valid slice
+    const firstBrace = str.indexOf('{');
+    const lastBrace = str.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      let idx = firstBrace;
+      while (idx !== -1 && idx < lastBrace) {
+        const candidate = str.slice(idx, lastBrace + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (isValidRoot(parsed)) return parsed;
+        } catch {}
+        idx = str.indexOf('{', idx + 1);
+      }
+      
+      // Try scanning '}' positions backwards
+      let rIdx = lastBrace;
+      while (rIdx !== -1 && rIdx > firstBrace) {
+        const candidate = str.slice(firstBrace, rIdx + 1);
+        try {
+          const parsed = JSON.parse(candidate);
+          if (isValidRoot(parsed)) return parsed;
+        } catch {}
+        rIdx = str.lastIndexOf('}', rIdx - 1);
+      }
     }
+    
+    // 3. Strip code fences
+    const fenceMatch = str.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) {
+      try {
+        const parsed = JSON.parse(fenceMatch[1].trim());
+        if (isValidRoot(parsed)) return parsed;
+      } catch {}
+    }
+    
     return null;
   };
 
@@ -189,14 +223,44 @@ export async function generateLMStudioResponse(
     };
   }
 
-  // Final fallback: return raw content as plain text segment
-  console.warn('[LM Studio] Could not parse JSON from response, using raw text fallback');
-  const fallbackText = rawContent || 'No response received from LM Studio.';
+  // Final fallback: Extract segments via regex instead of showing raw JSON text
+  console.warn('[LM Studio] Could not parse JSON from response, attempting regex recovery');
+  let recoveredSegments: any[] = [];
+  const textSegmentRegex = /"text"\s*:\s*"([^"]+)"/g;
+  let match;
+  while ((match = textSegmentRegex.exec(rawContent)) !== null) {
+    recoveredSegments.push({
+      text: match[1],
+      scale: "normal",
+      alignment: "center",
+      fontVariant: "Inter"
+    });
+  }
+
+  if (recoveredSegments.length === 0) {
+    const cleanProse = rawContent
+      .replace(/\{[\s\S]*\}/g, "") 
+      .replace(/"[^"]+"\s*:\s*"[^"]*"/g, "") 
+      .replace(/[{}["\]]+/g, "") 
+      .trim();
+    recoveredSegments.push({
+      text: cleanProse || "I received your message but encountered a formatting issue. Let's try again.",
+      scale: "normal",
+      alignment: "center",
+      fontVariant: "Inter"
+    });
+  }
+
+  const thinkingMatch = rawContent.match(/"thinking"\s*:\s*"([^"]+)"/);
+  const recoveredThinking = thinkingMatch 
+    ? thinkingMatch[1] 
+    : "The local model returned a response that had formatting issues, but the system successfully recovered the text segments.";
+
   return {
-    text: fallbackText,
-    segments: [{ text: fallbackText, scale: 'normal', alignment: 'center', fontVariant: 'Inter' }],
+    text: recoveredSegments.map(s => s.text).join(" "),
+    segments: recoveredSegments,
     keywords: [],
-    thinking: `LM Studio response could not be parsed as JSON. Raw response: ${rawContent.slice(0, 200)}`,
+    thinking: recoveredThinking,
     motionStyle: 'default',
     bgPrompt: 'beautiful landscape, realistic, 8k',
     weatherEffect: 'none',
