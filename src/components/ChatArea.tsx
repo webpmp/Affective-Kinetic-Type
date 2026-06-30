@@ -622,8 +622,6 @@ export function ChatArea({
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
   const [isTabsCollapsed, setIsTabsCollapsed] = useState(true);
   const [showHistoryOverlay, setShowHistoryOverlay] = useState(false);
-  const [decayStartTime, setDecayStartTime] = useState<number | null>(null);
-  const [decayProgress, setDecayProgress] = useState<number>(0);
 
   const handleTabClick = (tab: "thinking" | "settings" | "accessibility") => {
     if (activeTab === tab) {
@@ -683,61 +681,12 @@ export function ChatArea({
         : [];
 
   const getSystemStatus = () => {
-    if (isTyping) return "THINKING";
+    if (isTyping) return "GENERATING";
     if (latestAiMessage && currentSegmentIndex < segments.length - 1) return "RENDERING";
-    if (decayStartTime) {
-      const elapsed = Date.now() - decayStartTime;
-      const t0 = 2000;
-      const t1 = t0 + messageInterval * 1000;
-      if (elapsed < t1) {
-        return "STABILIZING";
-      }
-    }
     return "READY / LISTENING";
   };
 
-  useEffect(() => {
-    if (!latestAiMessage || isTyping) {
-      setDecayStartTime(null);
-      setDecayProgress(0);
-      return;
-    }
-
-    if (currentSegmentIndex === segments.length - 1) {
-      if (!decayStartTime) {
-        setDecayStartTime(Date.now());
-        setDecayProgress(0);
-      }
-    } else {
-      setDecayStartTime(null);
-      setDecayProgress(0);
-    }
-  }, [isTyping, currentSegmentIndex, segments.length, latestAiMessage, decayStartTime]);
-
-  useEffect(() => {
-    if (!decayStartTime) {
-      setDecayProgress(0);
-      return;
-    }
-
-    let animFrameId: number;
-    const durationMs = 2000 + (messageInterval * 1000) + 2000 + 10000;
-
-    const updateDecay = () => {
-      const elapsed = Date.now() - decayStartTime;
-      const progress = Math.min(1.0, elapsed / durationMs);
-      setDecayProgress(progress);
-
-      if (progress < 1.0) {
-        animFrameId = requestAnimationFrame(updateDecay);
-      }
-    };
-
-    animFrameId = requestAnimationFrame(updateDecay);
-    return () => cancelAnimationFrame(animFrameId);
-  }, [decayStartTime, messageInterval]);
-
-  const isInputDisabled = isTyping || (decayStartTime ? (Date.now() - decayStartTime) < (2000 + messageInterval * 1000) : false);
+  const isInputDisabled = isTyping || (latestAiMessage ? currentSegmentIndex < segments.length - 1 : false);
 
   useEffect(() => {
     setCurrentSegmentIndex(0);
@@ -856,68 +805,7 @@ export function ChatArea({
     const words = contentToRender.split(/(\s+)/); // Split by whitespace but keep the spaces
     const emphasizedWords = message.emphasizedWords || [];
 
-    const getDecayStyles = (wordIndex: number) => {
-      if (!isFocusMode || !decayStartTime) return {};
 
-      const elapsed = Date.now() - decayStartTime;
-      const t0 = 2000; // Phase 0: Completion Lock (2s)
-      const t1 = t0 + (messageInterval * 1000); // Phase 1: Idle Stability Window (messageInterval)
-      const t2 = t1 + 2000; // Phase 2: Decay Pre-Activation Cue (2s)
-      const t3 = t2 + 10000; // Phase 3: Cinematic Decay (10s)
-
-      let opacity = 1;
-      let filter = "none";
-      let x = 0;
-      let y = 0;
-      let rotate = 0;
-
-      if (elapsed < t1) {
-        // Phase 0 & Phase 1: Fully stable and readable, no visual indicators
-        return {};
-      } else if (elapsed < t2) {
-        // Phase 2: Decay Pre-Activation Cue
-        const p = (elapsed - t1) / 2000; // 0.0 to 1.0
-        opacity = 1 - p * 0.15; // subtle contrast softening (down to 0.85 opacity)
-        const jitter = Math.sin(Date.now() / 50 + wordIndex) * 0.5 * p;
-        x = jitter;
-        y = jitter;
-      } else if (elapsed < t3) {
-        // Phase 3: Cinematic Decay
-        const p = (elapsed - t2) / 10000; // 0.0 to 1.0
-        opacity = 0.85 - p * 0.45; // down to 0.40 opacity
-        
-        // Controlled fragmentation (pixel drift)
-        const angle = (wordIndex * 17) % (2 * Math.PI);
-        const driftDistance = 15 * p; // up to 15px drift
-        x = Math.cos(angle) * driftDistance;
-        y = Math.sin(angle) * driftDistance;
-        
-        rotate = ((wordIndex * 7) % 10 - 5) * p; // subtle rotation
-        const blurAmount = 1.5 * p;
-        filter = `blur(${blurAmount}px)`;
-      } else {
-        // Phase 4: Ambient Integration
-        const p = Math.min(1.0, (elapsed - t3) / 5000); // 0.0 to 1.0 over 5 seconds
-        opacity = 0.40 - p * 0.25; // down to 0.15 opacity
-        
-        const angle = (wordIndex * 17) % (2 * Math.PI);
-        const driftDistance = 15 + 10 * p; // up to 25px total drift
-        x = Math.cos(angle) * driftDistance;
-        y = Math.sin(angle) * driftDistance;
-        
-        rotate = ((wordIndex * 7) % 10 - 5);
-        filter = `blur(${1.5 + 2 * p}px)`;
-      }
-
-      return {
-        opacity,
-        filter,
-        x,
-        y,
-        rotate,
-        display: "inline-block"
-      };
-    };
 
     let lastNonSpaceIndex = -1;
     for (let i = words.length - 1; i >= 0; i--) {
@@ -1214,9 +1102,6 @@ export function ChatArea({
                       ease: "easeOut",
                     },
                   },
-                }}
-                style={{
-                  ...getDecayStyles(index)
                 }}
                 onAnimationComplete={() => {
                   if (index === lastNonSpaceIndex) {
@@ -2099,7 +1984,7 @@ export function ChatArea({
           {/* Status Indicator */}
           <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400">
-              System Status: <span className={getSystemStatus() === "READY / LISTENING" ? "text-emerald-600 font-semibold" : getSystemStatus() === "THINKING" ? "text-indigo-600 animate-pulse font-semibold" : "text-amber-600 font-semibold"}>{getSystemStatus()}</span>
+              System Status: <span className={getSystemStatus() === "READY / LISTENING" ? "text-emerald-600 font-semibold" : getSystemStatus() === "GENERATING" ? "text-indigo-600 animate-pulse font-semibold" : "text-amber-600 font-semibold"}>{getSystemStatus()}</span>
             </span>
           </div>
           <form onSubmit={handleSubmit} className="relative flex items-center gap-2">

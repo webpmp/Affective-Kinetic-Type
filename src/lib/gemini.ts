@@ -60,7 +60,6 @@ export interface ChatMessage {
   weatherOverlay?: string;
   contextualEffect?: ContextualEffect;
   followUpQuestion?: string | null;
-  decayStartTime?: number | null;
 }
 
 export async function generateResponse(
