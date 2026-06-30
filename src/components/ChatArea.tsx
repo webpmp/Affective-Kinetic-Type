@@ -1890,9 +1890,9 @@ export function ChatArea({
                           <span className="text-slate-400">Base Theme:</span>{" "}
                           {latestAiMessage?.baseTheme || "Minimalist"}
                         </div>
-                        <div className="truncate" title={latestAiMessage?.bgAnimationType || "none"}>
+                        <div className="truncate" title={bgType === "gradient" ? "Gradient" : "Image"}>
                           <span className="text-slate-400">Background:</span>{" "}
-                          {latestAiMessage?.bgAnimationType || "none"}
+                          {bgType === "gradient" ? "Gradient" : "Image"}
                         </div>
                         <div>
                           <span className="text-slate-400">Density:</span>{" "}
