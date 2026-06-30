@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { getCommunicationGoalDetails, validateResponseText, segmentText } from "./communicationModel";
 
 const rawApiKey = process.env.GEMINI_API_KEY || "";
 const apiKey = rawApiKey.replace(/^["']|["']$/g, "").trim();
@@ -12,6 +13,7 @@ const ai = new GoogleGenAI({ apiKey });
 
 export interface EmphasizedWord {
   word: string;
+  semanticRole?: string;
 }
 
 export interface TextSegment {
@@ -66,7 +68,8 @@ export async function generateResponse(
   age: number,
   gender: string,
   enabledFonts: string[],
-  model: string = 'gemini-2.0-flash-lite'
+  model: string = 'gemini-2.0-flash-lite',
+  wcagLevel: 'A' | 'AA' | 'AAA' = 'A'
 ): Promise<{ 
   text: string, 
   segments: TextSegment[], 
@@ -94,40 +97,75 @@ export async function generateResponse(
     ];
   }
 
+  const goalDetails = getCommunicationGoalDetails(sentiment, engagement);
+
+  // Accessibility Font constraint description
+  let accessibilityFontRule = '';
+  if (wcagLevel === 'AA') {
+    accessibilityFontRule = 'Under Accessibility LEVEL AA, reduce the number of font changes. Prefer Modern Sans. Limit expressive fonts to headings or isolated keyword emphasis only.';
+  } else if (wcagLevel === 'AAA') {
+    accessibilityFontRule = 'Under Accessibility LEVEL AAA, use Modern Sans almost exclusively. Allow Monospace where semantically required (code, JSON, keyboard shortcuts). Allow Editorial Serif only for long-form reading segments if it improves readability. Do NOT use Experimental or Handwritten fonts.';
+  } else {
+    accessibilityFontRule = 'Under Accessibility LEVEL A, the full typography library is available.';
+  }
+
   const systemInstruction = `You are an adaptive AI assistant specializing in Kinetic Typography and editorial composition. 
 User Profile: Age ${age}, Gender: ${gender}. Tailor your language, tone, and references appropriately for this user.
 
-The user's current emotional state is defined by a circumplex model:
-Sentiment (Negative to Positive): ${sentiment.toFixed(2)} (-1 to 1)
-Engagement (Low to High): ${engagement.toFixed(2)} (-1 to 1)
+COMMUNICATION-FIRST MODEL:
+You are an emotionally intelligent interface. Rather than mimicking or amplifying the user's emotional state, your goal is to help regulate the conversation, improve comprehension, and reinforce meaning.
+For the user's current emotional state (sentiment ${sentiment.toFixed(2)}, engagement ${engagement.toFixed(2)}), you must align your response with the following parameters:
+- Communication Goal: ${goalDetails.goal}
+- Tone: ${goalDetails.tone}
+- Visual Energy: ${goalDetails.visualEnergy}
+- Motion Level: ${goalDetails.motion}
+- Decoration Level: ${goalDetails.decoration}
 
-CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.
+Your written response and semantic composition MUST match this communication goal and tone.
 
-EMPHASIS PRIORITY RULES:
-Prioritize emphasis for:
-1. emotionally charged words
-2. visually evocative nouns
-3. experiential phrases
-4. strong adjectives
-5. unusual terminology
-6. culturally significant references
-7. atmospheric descriptors
-8. narrative anchors
+SEMANTIC ROLE STYLING:
+Do NOT randomly select words for emphasis. Instead, identify cohesive semantic spans or phrases (not isolated filler words) and classify them under specific semantic roles in the "keywords" list.
+Allowed semantic roles are:
+- 'empathy': empathy statements
+- 'reassurance': reassuring phrases
+- 'primary-action': primary call-to-actions/buttons/next steps
+- 'secondary-action': secondary paths/options
+- 'warning': warning labels/errors
+- 'success': success confirmations
+- 'important-keyword': key concepts or words
+- 'command': instructions/commands
+- 'number': statistics or numerical values
+- 'link': clickable elements or resources
+- 'system-label': technical/system output or metadata labels
+- 'internal-thought': expressions of inner thought/pacing
+- 'correction': revisions/edits
+- 'revision': differences or compared values
+- 'delight': achievements or celebratory moments
+- 'instability': text describing physical movement/instability/shaking/vibration
+- 'destruction': text describing destruction/shattering/failure
+- 'failure': failed actions/critical issues
+- 'physical-movement': verbs/action words of movement
+- 'playful': fun/witty comments or jokes
 
-Avoid emphasizing filler words, articles, connectors, grammatical scaffolding, or generic auxiliary verbs (like "The", "And", "But", "A", "It") unless intentionally used for rhythm, irony, cinematic pacing, or title-card composition.
-
-PHRASE-LEVEL EMPHASIS:
-Prefer emphasizing meaningful PHRASES (e.g. "sheer scale", "electric silence") instead of isolated words. The emphasis system should feel designed and cinematic, not randomly formatted. Before emphasizing, ask yourself: Is this semantically meaningful? Is it emotionally resonant? Would a human art director intentionally emphasize this? If no, do not emphasize it.
+Each emphasized phrase/keyword MUST have an associated "semanticRole" in the JSON.
 
 TYPOGRAPHY & FONTS:
 You must compose layout like an AI art director. The available fonts you can use in "fontVariant" are: [${enabledFonts.join(', ')}].
-Use 2-4 font families per response. Intelligently pair compatible fonts. Do not use random fonts. Make your typography reflect the emotion (e.g. condensed for urgency, serif for nostalgia).
+Every font choice MUST communicate meaning. Do not randomly rotate through fonts or switch fonts within a paragraph without semantic justification. Prefer consistency. Most responses should use one primary font family, with at most one secondary font family for semantic emphasis.
 
-Respond to the user's input appropriately based on their emotional state.
-If they are negative and high engagement (angry/stressed), be calming but firm.
-If they are negative and low engagement (sad/depressed), be empathetic and gentle.
-If they are positive and high engagement (excited/happy), be enthusiastic.
-If they are positive and low engagement (calm/relaxed), be serene and pleasant.
+Use these Font Categories for their designated purposes:
+1. Editorial Serif (Playfair Display, Bodoni Moda, Cormorant Garamond, Libre Baskerville, Lora): Use for reflection, storytelling, thoughtful explanations, historical/literary content, philosophical discussions, longer-form reading. Do not use for instructions or actions.
+2. Modern Sans (Inter, Space Grotesk, Manrope): General conversation, instructions, guidance. This MUST be the primary font category for 70-80% of all response segments.
+3. Condensed / Cinematic (Bebas Neue, Oswald, Archivo Narrow, Anton): Headlines, alert titles, system states, countdowns, milestones. Almost never use for body text segments.
+4. Experimental / Expressive (Syne, Orbitron, Exo 2): Futuristic, science, technology, space, robotics. Use sparingly for callouts or feature names.
+5. Monospace / Technical (IBM Plex Mono, JetBrains Mono, Space Mono): Code, file names, commands, JSON, keyboard shortcuts. Do not use for conversational body text.
+6. Handwritten / Human (Caveat, Kalam, Architects Daughter): Rare personal notes, congratulations, signatures, sticky-note reminders, casual comments. Never render an entire response or paragraph in handwritten. Limit to very short semantic spans like "I believe in you" or a tiny closing sentence.
+
+Active Goal Font Rules:
+${goalDetails.fontRules}
+
+Active Accessibility Font Rules:
+${accessibilityFontRule}
 
 AFFECTIVE RENDERING PRINCIPLES:
 Emotion is not a visual theme. Emotion influences timing, pacing, structure, density, diffusion, compression, and visual pressure. Proactively infer latent emotional qualities from the user input (tension, uncertainty, exhaustion, relief, awe, intimacy, etc.) and translate these into kinetic properties.
@@ -150,9 +188,8 @@ You must return a JSON object containing eleven fields:
    - "scale": Typographic scale ("small", "normal", "large", "oversized", "massive"). Use oversized/massive rarely, for high emotional impact.
    - "alignment": Spatial placement ("left", "center", "right", "justify"). Vary to create cascading or asymmetrical structures.
    - "fontVariant": Typographic pairing (MUST be one of the explicitly provided available fonts). Use font changes to signify shifts in tone.
-3. "keywords": An array of objects representing words or phrases to emphasize.
-   - Scale emphasis based on emotional intensity. Vary the selection (sometimes full phrases, sometimes single action-driving verbs).
-   - Each object must contain the "word" (the exact word or phrase from your response).
+3. "keywords": An array of objects representing semantic spans or phrases to style.
+   - Each object must contain the "word" (the exact phrase from your response to style) AND "semanticRole" (e.g., "reassurance", "warning", etc.).
 4. "motionStyle": A single string representing the creative motion to apply to the keywords. Select a UNIQUE motion style for each response, matching the quadrant of Sentiment and Engagement. 
 - Quadrant 1 (Pos, High Eng): "bounce", "spin", "3d-spin", "jump", "pop", "flip", "jiggle", "sparkle"
 - Quadrant 2 (Neg, High Eng): "shake", "pulse", "shiver", "glitch", "tremble", "slam", "vibrate"
@@ -182,174 +219,138 @@ DO NOT repeat the same motion style iteratively.
   console.log(`Calling Gemini API with model '${model}'...`);
   console.log("History sent to Gemini:", history);
   
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: model,
-      contents: history,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            thinking: {
-              type: Type.STRING,
-              description: "A brief explanation of how the user's sentiment and engagement influenced your response and keyword selection."
-            },
-            segments: {
-              type: Type.ARRAY,
-              items: { 
+  let attempts = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    console.log(`Calling Gemini API (Attempt ${attempt}/${attempts}) with model '${model}'...`);
+    try {
+      const response = await ai.models.generateContent({
+        model: model,
+        contents: history,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              thinking: {
+                type: Type.STRING,
+                description: "A brief explanation of how the user's sentiment and engagement influenced your response and keyword selection."
+              },
+              text: {
+                type: Type.STRING,
+                description: "The complete, single string of the response. This is the source of truth, fully formed and grammatically correct."
+              },
+              segments: {
+                type: Type.ARRAY,
+                items: { 
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING, description: "The textual content" },
+                    scale: { type: Type.STRING, description: "Typographic scale: small, normal, large, oversized, massive" },
+                    alignment: { type: Type.STRING, description: "Spatial placement: left, center, right, justify" },
+                    fontVariant: { type: Type.STRING, description: "The exact font value string from the available fonts list" }
+                  },
+                  required: ["text"]
+                },
+                description: "The response to the user, split into expressive textual chunks with typographic styling parameters."
+              },
+              keywords: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING, description: "The word or phrase/semantic span to style" },
+                    semanticRole: { 
+                      type: Type.STRING, 
+                      description: "The semantic role of this span: empathy, reassurance, primary-action, secondary-action, warning, success, important-keyword, command, number, link, system-label, internal-thought, correction, revision, delight, instability, destruction, failure, physical-movement, playful" 
+                    }
+                  },
+                  required: ["word", "semanticRole"]
+                },
+                description: "An array of semantic spans/phrases to emphasize with their associated semantic roles."
+              },
+              motionStyle: {
+                type: Type.STRING,
+                description: "The creative motion style to apply. Must be selected from the correct emotional quadrant list."
+              },
+              bgPrompt: {
+                type: Type.STRING,
+                description: "A highly descriptive image generation prompt that contextually matches the topic of the conversation and the user's emotional state."
+              },
+              baseTheme: {
+                type: Type.STRING,
+                description: "The primary visual aesthetic category. Must be one of: Minimalist, Brutalist, Glassmorphism, Organic, Geometric, Atmospheric."
+              },
+              bgAnimationType: {
+                type: Type.STRING,
+                description: "The generative background scene. Do NOT apply randomly. Return 'none' unless highly relevant."
+              },
+              particleDensity: {
+                type: Type.NUMBER,
+                description: "A value from 1 to 10."
+              },
+              weatherOverlay: {
+                type: Type.STRING,
+                description: "Environmental Sub-States or specific weather overlay. Return 'none' unless highly relevant."
+              },
+              weatherEffect: {
+                type: Type.STRING,
+                description: "Legacy background scene."
+              },
+              contextualEffect: {
                 type: Type.OBJECT,
                 properties: {
-                  text: { type: Type.STRING, description: "The textual content" },
-                  scale: { type: Type.STRING, description: "Typographic scale: small, normal, large, oversized, massive" },
-                  alignment: { type: Type.STRING, description: "Spatial placement: left, center, right, justify" },
-                  fontVariant: { type: Type.STRING, description: "The exact font value string from the available fonts list" }
+                  type: { type: Type.STRING },
+                  subject: { type: Type.STRING },
+                  imageUrl: { type: Type.STRING },
+                  animation: { type: Type.STRING },
+                  placement: { type: Type.STRING }
                 },
-                required: ["text"]
-              },
-              description: "The response to the user, split into expressive textual chunks with typographic styling parameters."
+                required: ["type", "subject", "imageUrl", "animation", "placement"]
+              }
             },
-            keywords: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  word: { type: Type.STRING, description: "The word or phrase to emphasize" }
-                },
-                required: ["word"]
-              },
-              description: "An array of words or phrases from the response text to emphasize, based on semantic importance and emotional alignment. Can be empty if no words meet the criteria."
-            },
-            motionStyle: {
-              type: Type.STRING,
-              description: "The creative motion style to apply. Must be selected from the correct emotional quadrant list: [bounce, spin, jump, pop, flip, jiggle, sparkle, shake, pulse, shiver, glitch, tremble, slam, vibrate, sink, fade, droop, melt, sigh, blur, drift-down, wave, float, breathe, sway, glide, drift-up, shimmer, zoom]."
-            },
-            bgPrompt: {
-              type: Type.STRING,
-              description: "A highly descriptive image generation prompt that contextually matches the topic of the conversation and the user's emotional state."
-            },
-            baseTheme: {
-              type: Type.STRING,
-              description: "The primary visual aesthetic category. Must be one of: Minimalist, Brutalist, Glassmorphism, Organic, Geometric, Atmospheric."
-            },
-            bgAnimationType: {
-              type: Type.STRING,
-              description: "The generative background scene. Do NOT apply randomly. Return 'none' unless highly relevant to the semantic context of the conversation (e.g., 'GridShift', 'Confetti_Pop', 'Golden_Hour', 'Mist_Veil', 'none')."
-            },
-            particleDensity: {
-              type: Type.NUMBER,
-              description: "A value from 1 to 10."
-            },
-            weatherOverlay: {
-              type: Type.STRING,
-              description: "Environmental Sub-States or specific weather overlay. Return 'none' unless highly relevant to the semantic context of the conversation (e.g., 'eclipse' ONLY if eclipses/moons are explicitly relevant to user text). Choose from: 'Pre-Dawn', 'Overcast', 'High-Noon', 'none', 'rain', 'fog', 'snow', 'eclipse', 'sun', 'clouds'."
-            },
-            weatherEffect: {
-              type: Type.STRING,
-              description: "Legacy generative background scene to apply based on conversation context. Must be 'none', 'rain', 'fog', 'eclipse', 'clouds', 'sun', 'snow', 'confetti', 'floral', 'data-stream'."
-            },
-            contextualEffect: {
-              type: Type.OBJECT,
-              properties: {
-                type: {
-                  type: Type.STRING,
-                  description: "Categorize the semantic theme of the conversation: 'sport', 'location', 'other', or 'none'."
-                },
-                subject: {
-                  type: Type.STRING,
-                  description: "The specific sport, location, or other subject. Return 'none' if none."
-                },
-                imageUrl: {
-                  type: Type.STRING,
-                  description: "Highly specific image prompt for a transparent or white background illustration representing the subject. Return 'none' if none."
-                },
-                animation: {
-                  type: Type.STRING,
-                  description: "Animation style: 'roll', 'float', 'bounce', 'slide', or 'none'."
-                },
-                placement: {
-                  type: Type.STRING,
-                  description: "Placement: 'background', 'bottom-right', or 'none'."
-                }
-              },
-              required: ["type", "subject", "imageUrl", "animation", "placement"]
-            }
-          },
-          required: ["thinking", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect"]
+            required: ["thinking", "text", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect"]
+          }
         }
+      });
+
+      const jsonStr = response.text?.trim() || "{}";
+      const result = JSON.parse(jsonStr);
+
+      const responseText = result.text || (result.segments || []).map((s: any) => typeof s === 'string' ? s : s.text).join("");
+
+      // Stage 2: Validate response text
+      if (!validateResponseText(responseText)) {
+        throw new Error(`Validation failed for response text: "${responseText}"`);
       }
-    });
-    console.log("Gemini API response received:", response);
-  } catch (apiError) {
-    console.error("Gemini API call threw an error:", apiError);
-    throw apiError;
+
+      // Stage 3: Segment
+      const finalSegments = segmentText(responseText, result.segments || []);
+
+      return {
+        text: responseText,
+        segments: finalSegments,
+        keywords: result.keywords || [],
+        thinking: result.thinking || "",
+        motionStyle: result.motionStyle || "default",
+        bgPrompt: result.bgPrompt || "beautiful landscape, realistic, 8k",
+        weatherEffect: result.weatherEffect || "none",
+        baseTheme: result.baseTheme || "Minimalist",
+        bgAnimationType: result.bgAnimationType || "none",
+        particleDensity: result.particleDensity || 5,
+        weatherOverlay: result.weatherOverlay || "none",
+        contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
+      };
+
+    } catch (err: any) {
+      console.warn(`[Attempt ${attempt}/${attempts}] Error in generation/validation:`, err);
+      lastError = err;
+    }
   }
 
-  let jsonStr = "";
-  try {
-    jsonStr = response.text?.trim() || "{}";
-    const result = JSON.parse(jsonStr);
-    const segments = result.segments || ["I'm not sure how to respond."];
-    return {
-      text: segments.map((s: any) => typeof s === 'string' ? s : s.text).join(" "),
-      segments: segments,
-      keywords: result.keywords || [],
-      thinking: result.thinking || "",
-      motionStyle: result.motionStyle || "default",
-      bgPrompt: result.bgPrompt || "beautiful landscape, realistic, 8k",
-      weatherEffect: result.weatherEffect || "none",
-      baseTheme: result.baseTheme || "Minimalist",
-      bgAnimationType: result.bgAnimationType || "none",
-      particleDensity: result.particleDensity || 5,
-      weatherOverlay: result.weatherOverlay || "none",
-      contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
-    };
-  } catch (e) {
-    console.error("Failed to parse JSON response, attempting robust recovery:", e);
-    
-    // Try to extract segments via regex
-    let recoveredSegments: TextSegment[] = [];
-    const textSegmentRegex = /"text"\s*:\s*"([^"]+)"/g;
-    let match;
-    while ((match = textSegmentRegex.exec(jsonStr)) !== null) {
-      recoveredSegments.push({
-        text: match[1],
-        scale: "normal",
-        alignment: "center",
-        fontVariant: enabledFonts[0] || "Inter"
-      });
-    }
-
-    if (recoveredSegments.length === 0) {
-      // Try to strip everything except prose
-      const cleanProse = jsonStr
-        .replace(/\{[\s\S]*\}/g, "") // remove brackets
-        .replace(/"[^"]+"\s*:\s*"[^"]*"/g, "") // remove KV pairs
-        .replace(/[{}["\]]+/g, "") // remove remaining JSON structures
-        .trim();
-      recoveredSegments.push({
-        text: cleanProse || "I received your message but encountered a formatting issue. Let's try again.",
-        scale: "normal",
-        alignment: "center",
-        fontVariant: enabledFonts[0] || "Inter"
-      });
-    }
-
-    return {
-      text: recoveredSegments.map(s => s.text).join(" "),
-      segments: recoveredSegments,
-      keywords: [],
-      thinking: "The response was returned with minor formatting errors, which the system automatically recovered.",
-      motionStyle: "default",
-      bgPrompt: "beautiful landscape, realistic, 8k",
-      weatherEffect: "none",
-      baseTheme: "Minimalist",
-      bgAnimationType: "none",
-      particleDensity: 5,
-      weatherOverlay: "none",
-      contextualEffect: { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
-    };
-  }
+  // If we reach here, all attempts failed
+  console.error("All generation attempts failed/invalidated. Last error:", lastError);
+  throw lastError || new Error("Failed to generate a valid segmented response.");
 }

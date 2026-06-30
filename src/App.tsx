@@ -9,15 +9,14 @@ import { LayoutTemplate, Maximize2, List } from 'lucide-react';
 import { AIProvider, LMStudioConfig, loadLMStudioConfig, generateLMStudioResponse, testLMStudioConnection } from './lib/aiProvider';
 import { LMStudioModal } from './components/LMStudioModal';
 import { generateSystemThinking } from './lib/systemThinking';
+import { getCommunicationGoalDetails } from './lib/communicationModel';
 
 export default function App() {
   const [sentiment, setSentiment] = useState(0);
   const [engagement, setEngagement] = useState(0);
-  const [enabledFonts, setEnabledFonts] = useState<string[]>([
-    FONTS.find(f => f.name === 'Inter')?.name || 'Inter',
-    FONTS.find(f => f.name === 'Playfair Display')?.name || 'Playfair Display',
-    FONTS.find(f => f.name === 'JetBrains Mono')?.name || 'JetBrains Mono'
-  ]);
+  const [enabledFonts, setEnabledFonts] = useState<string[]>(
+    FONTS.map(f => f.name)
+  );
   const [fontSize, setFontSize] = useState(24);
   const [fontColor, setFontColor] = useState('#ffffff');
   
@@ -33,8 +32,8 @@ export default function App() {
   const [animationIntensity, setAnimationIntensity] = useState(1.0);
   const [maxAnimatedKeywords, setMaxAnimatedKeywords] = useState(3);
   const [animationStability, setAnimationStability] = useState(true);
-  const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA');
-  const [wcagStrictMode, setWcagStrictMode] = useState(true);
+  const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('A');
+  const [wcagStrictMode, setWcagStrictMode] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'side' | 'right-side' | 'stacked' | 'below' | 'hidden'>('below');
   const [viewMode, setViewMode] = useState<'threaded' | 'focus'>('threaded');
   const [conversationMode, setConversationMode] = useState(true);
@@ -382,7 +381,47 @@ export default function App() {
 
         contextualEffect = { type, subject, imageUrl, animation, placement };
       } else if (aiProvider === 'lm-studio') {
-        const systemPrompt = `You are an adaptive AI assistant specializing in Kinetic Typography. User Profile: Age ${age}, Gender: ${gender}. Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}. Available fonts: [${enabledFonts.join(', ')}]. CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.`;
+        const goalDetails = getCommunicationGoalDetails(sentiment, engagement);
+        const systemPrompt = `You are an adaptive AI assistant specializing in Kinetic Typography. User Profile: Age ${age}, Gender: ${gender}. Sentiment: ${sentiment.toFixed(2)}, Engagement: ${engagement.toFixed(2)}. Available fonts: [${enabledFonts.join(', ')}].
+
+COMMUNICATION-FIRST MODEL:
+You are an emotionally intelligent interface. Rather than mimicking or amplifying the user's emotional state, your goal is to help regulate the conversation, improve comprehension, and reinforce meaning.
+For the user's current emotional state, you must align your response with the following parameters:
+- Communication Goal: ${goalDetails.goal}
+- Tone: ${goalDetails.tone}
+- Visual Energy: ${goalDetails.visualEnergy}
+- Motion Level: ${goalDetails.motion}
+- Decoration Level: ${goalDetails.decoration}
+
+Your written response and semantic composition MUST match this communication goal and tone.
+
+SEMANTIC ROLE STYLING:
+Do NOT randomly select words for emphasis. Instead, identify cohesive semantic spans or phrases (not isolated filler words) and classify them under specific semantic roles in the "keywords" list.
+Allowed semantic roles are:
+- 'empathy': empathy statements
+- 'reassurance': reassuring phrases
+- 'primary-action': primary call-to-actions/buttons/next steps
+- 'secondary-action': secondary paths/options
+- 'warning': warning labels/errors
+- 'success': success confirmations
+- 'important-keyword': key concepts or words
+- 'command': instructions/commands
+- 'number': statistics or numerical values
+- 'link': clickable elements or resources
+- 'system-label': technical/system output or metadata labels
+- 'internal-thought': expressions of inner thought/pacing
+- 'correction': revisions/edits
+- 'revision': differences or compared values
+- 'delight': achievements or celebratory moments
+- 'instability': text describing physical movement/instability/shaking/vibration
+- 'destruction': text describing destruction/shattering/failure
+- 'failure': failed actions/critical issues
+- 'physical-movement': verbs/action words of movement
+- 'playful': fun/witty comments or jokes
+
+Each emphasized phrase/keyword MUST have an associated "semanticRole" in the JSON.
+
+CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.`;
         const chatHistory = [...messages, userMessage].map(m => ({ role: m.role, content: m.content }));
         console.log('[App] LM Studio Config being used for response generation:', lmStudioConfig);
         const response = await generateLMStudioResponse(lmStudioConfig, chatHistory, systemPrompt);
@@ -407,7 +446,8 @@ export default function App() {
           age,
           gender,
           enabledFonts,
-          aiProvider
+          aiProvider,
+          wcagLevel
         );
         aiText = response.text;
         segments = response.segments;
@@ -674,6 +714,7 @@ export default function App() {
             messageInterval={messageInterval}
             layoutMode={layoutMode}
             onOpenLMStudioSettings={() => setShowLMStudioModal(true)}
+            enabledFonts={enabledFonts}
           />
         </div>
 

@@ -1,4 +1,5 @@
 // AI Provider type definitions, LM Studio connection & generation utilities
+import { validateResponseText, segmentText } from './communicationModel';
 
 export type AIProvider =
   | 'gemini-2.0-flash-lite'
@@ -103,7 +104,7 @@ export async function generateLMStudioResponse(
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
-  const jsonSchema = `{"thinking":"string","segments":[{"text":"string","scale":"normal|large|small|oversized|massive","alignment":"center|left|right","fontVariant":"string"}],"keywords":[{"word":"string"}],"motionStyle":"string","bgPrompt":"string","baseTheme":"string","bgAnimationType":"string","particleDensity":5,"weatherOverlay":"none","weatherEffect":"none","contextualEffect":{"type":"none","subject":"none","imageUrl":"none","animation":"none","placement":"none"}}`;
+  const jsonSchema = `{"thinking":"string","text":"string","segments":[{"text":"string","scale":"normal|large|small|oversized|massive","alignment":"center|left|right","fontVariant":"string"}],"keywords":[{"word":"string","semanticRole":"string"}],"motionStyle":"string","bgPrompt":"string","baseTheme":"string","bgAnimationType":"string","particleDensity":5,"weatherOverlay":"none","weatherEffect":"none","contextualEffect":{"type":"none","subject":"none","imageUrl":"none","animation":"none","placement":"none"}}`;
 
   const chatMessages = [
     {
@@ -163,7 +164,7 @@ export async function generateLMStudioResponse(
       if (isValidRoot(parsed)) return parsed;
     } catch {}
     
-    // 2. Scan all '{' positions forward to find a valid slice
+    // 2. Scan braces
     const firstBrace = str.indexOf('{');
     const lastBrace = str.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -177,7 +178,6 @@ export async function generateLMStudioResponse(
         idx = str.indexOf('{', idx + 1);
       }
       
-      // Try scanning '}' positions backwards
       let rIdx = lastBrace;
       while (rIdx !== -1 && rIdx > firstBrace) {
         const candidate = str.slice(firstBrace, rIdx + 1);
@@ -204,12 +204,11 @@ export async function generateLMStudioResponse(
   const result = tryParseJSON(rawContent);
 
   if (result) {
-    const segments = result.segments?.length
-      ? result.segments
-      : [{ text: result.thinking || rawContent || 'No response', scale: 'normal', alignment: 'center', fontVariant: 'Inter' }];
+    const responseText = result.text || (result.segments || []).map((s: any) => typeof s === 'string' ? s : s.text).join("");
+    const finalSegments = segmentText(responseText, result.segments || []);
     return {
-      text: segments.map((s: any) => typeof s === 'string' ? s : s.text).join(' '),
-      segments,
+      text: responseText,
+      segments: finalSegments,
       keywords: result.keywords || [],
       thinking: result.thinking || '',
       motionStyle: result.motionStyle || 'default',
@@ -251,14 +250,17 @@ export async function generateLMStudioResponse(
     });
   }
 
+  const responseText = recoveredSegments.map(s => s.text).join("");
+  const finalSegments = segmentText(responseText, recoveredSegments);
+
   const thinkingMatch = rawContent.match(/"thinking"\s*:\s*"([^"]+)"/);
   const recoveredThinking = thinkingMatch 
     ? thinkingMatch[1] 
     : "The local model returned a response that had formatting issues, but the system successfully recovered the text segments.";
 
   return {
-    text: recoveredSegments.map(s => s.text).join(" "),
-    segments: recoveredSegments,
+    text: responseText,
+    segments: finalSegments,
     keywords: [],
     thinking: recoveredThinking,
     motionStyle: 'default',

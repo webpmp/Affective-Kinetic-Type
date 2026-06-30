@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Send, Loader2, History, X } from "lucide-react";
 import { ChatMessage, TextSegment, ContextualEffect } from "../lib/gemini";
 import { KineticWord } from "./KineticWord";
+import { getClosestEmotion } from "./Circumplex";
 import { FONTS } from "../lib/fonts";
 import { motion, AnimatePresence } from "motion/react";
 import { getLuminance, hexToRgb, getContrastRatio } from "../lib/wcag";
+import { getCommunicationGoalDetails, SEMANTIC_ROLE_MAP } from "../lib/communicationModel";
+import { ANIMATION_POOL } from "../lib/animations";
 
 interface ContextualEffectOverlayProps {
   effect: ContextualEffect;
@@ -590,6 +593,7 @@ interface ChatAreaProps {
   messageInterval: number;
   layoutMode: "side" | "right-side" | "stacked" | "below" | "hidden";
   onOpenLMStudioSettings?: () => void;
+  enabledFonts?: string[];
 }
 
 export function ChatArea({
@@ -607,6 +611,7 @@ export function ChatArea({
   messageInterval,
   layoutMode,
   onOpenLMStudioSettings,
+  enabledFonts = [],
 }: ChatAreaProps) {
   const [input, setInput] = useState("");
   const [showSystemThinking, setShowSystemThinking] = useState(false);
@@ -906,11 +911,30 @@ export function ChatArea({
     const msgFontSize = message.fontSize || 16;
     const msgSentiment = message.sentiment ?? 0;
     const msgEngagement = message.engagement ?? 0;
-    const maxKeywords = message.maxAnimatedKeywords ?? 3;
-    const allowedEmphasizedWords = (message.emphasizedWords || []).slice(
-      0,
-      maxKeywords,
-    );
+    
+    // Emotional Energy Budget calculation using semantic spans
+    const goalDetails = getCommunicationGoalDetails(msgSentiment, msgEngagement);
+    const allSpans = message.emphasizedWords || [];
+
+    const getPriority = (r?: string) => {
+      if (!r) return 99;
+      const role = r.toLowerCase();
+      if (['warning', 'failure', 'destruction', 'instability'].includes(role)) return 1;
+      if (['primary-action'].includes(role)) return 2;
+      if (['success', 'delight'].includes(role)) return 3;
+      if (['reassurance', 'empathy'].includes(role)) return 4;
+      if (['important-keyword', 'important'].includes(role)) return 5;
+      if (['secondary-action'].includes(role)) return 6;
+      return 7; // All others (decorative emphasis)
+    };
+
+    const sortedSpans = [...allSpans].sort((a, b) => getPriority(a.semanticRole) - getPriority(b.semanticRole));
+
+    const decoLimit = Math.ceil(allSpans.length * goalDetails.budget.decoration);
+    const allowedDecoSpans = sortedSpans.slice(0, decoLimit);
+
+    const animLimit = Math.ceil(allSpans.length * goalDetails.budget.animation);
+    const allowedAnimSpans = sortedSpans.slice(0, animLimit);
 
     // Calculate timing based on engagement
     // Low engagement (<= 0): slightly slower (upper bounds)
@@ -992,12 +1016,18 @@ export function ChatArea({
 
             // Check if this word is part of an emphasized phrase
             let matchedEmphasizedWord = null;
+            let decorationAllowed = false;
+            let animationAllowed = false;
             if (cleanWord) {
-              matchedEmphasizedWord = allowedEmphasizedWords.find((ew) => {
+              matchedEmphasizedWord = allSpans.find((ew) => {
                 if (!ew || typeof ew !== 'object' || !ew.word) return false;
                 const phraseWords = ew.word.toLowerCase().split(/\s+/);
                 return phraseWords.includes(cleanWord);
               });
+              if (matchedEmphasizedWord) {
+                decorationAllowed = allowedDecoSpans.some(span => span.word === matchedEmphasizedWord.word);
+                animationAllowed = allowedAnimSpans.some(span => span.word === matchedEmphasizedWord.word);
+              }
             }
 
             const isSpace = /^\s+$/.test(word);
@@ -1040,6 +1070,10 @@ export function ChatArea({
                 animationStability={message.animationStability}
                 wcagLevel={message.wcagLevel}
                 wcagStrictMode={message.wcagStrictMode}
+                semanticRole={matchedEmphasizedWord.semanticRole}
+                decorationAllowed={decorationAllowed}
+                animationAllowed={animationAllowed}
+                enabledFonts={enabledFonts}
               />
             ) : (
               <span>{word}</span>
@@ -1686,7 +1720,7 @@ export function ChatArea({
         {hasUserMessages && !isTyping && !isTabsCollapsed && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 230, opacity: 1 }}
+            animate={{ height: 197, opacity: 1 }}
             exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
             transition={{ 
               duration: 0.25, 
@@ -1696,87 +1730,174 @@ export function ChatArea({
             onAnimationComplete={() => setIsAnimatingTabs(false)}
             className="shrink-0 bg-slate-800 border-t border-b border-slate-600 py-4 px-6 shadow-lg text-xs text-slate-300 leading-relaxed overflow-y-auto relative z-10 w-full -mt-[1px]"
           >
-                {activeTab === "thinking" && (
-                  <div className="font-normal not-italic text-[13px] pl-3 border-l-2 border-slate-500/50 space-y-3 leading-relaxed text-slate-200">
-                    {(latestAiMessage?.thinking || '...').split('\n\n').map((para, i) => (
-                      <p key={i}>{para}</p>
-                    ))}
-                  </div>
-                )}
+                {activeTab === "thinking" && (() => {
+                  const rawThinking = latestAiMessage?.thinking || '...';
+                  const regex = /(\b(?:joy|anger|sadness|fear|anxiety|stress|depression|boredom|fatigue|calm|relaxation|satisfaction|contentment|elation|enthusiasm|excitement|neutral)s?\b|-?\d\.\d+)/gi;
+                  
+                  return (
+                    <div className="font-normal not-italic text-[13px] pl-3 border-l-2 border-slate-500/50 space-y-3 leading-relaxed text-slate-200">
+                      {rawThinking.split('\n\n').map((para, i) => {
+                        const parts = para.split(regex);
+                        return (
+                          <p key={i}>
+                            {parts.map((part, idx) => {
+                              const isMatch = /^(?:joy|anger|sadness|fear|anxiety|stress|depression|boredom|fatigue|calm|relaxation|satisfaction|contentment|elation|enthusiasm|excitement|neutral)s?$|^-?\d\.\d+$/i.test(part.trim());
+                              return isMatch ? (
+                                <strong key={idx} className="text-white font-bold">{part}</strong>
+                              ) : (
+                                part
+                              );
+                            })}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
-                {activeTab === "settings" && (
-                  <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-slate-700/50 text-[11px] font-mono space-y-1.5 text-slate-300">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                      <div>
-                        <span className="text-slate-400">Sentiment:</span>{" "}
-                        {(latestAiMessage?.sentiment ?? 0).toFixed(2)}
-                      </div>
-                      <div
-                        className="truncate"
-                        title={latestAiMessage?.fontFamily}
-                      >
-                        <span className="text-slate-400">Font:</span>{" "}
-                        {
-                          (latestAiMessage?.fontFamily || '"Inter"')
-                            .replace(/"/g, "")
-                            .split(",")[0]
-                        }
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Engagement:</span>{" "}
-                        {(latestAiMessage?.engagement ?? 0).toFixed(2)}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Size:</span>{" "}
-                        {latestAiMessage?.fontSize || 16}px
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Gender:</span>{" "}
-                        {latestAiMessage?.gender || "Neutral"}
-                      </div>
-                      <div
-                        className="truncate"
-                        title={latestAiMessage?.motionStyle || "default"}
-                      >
-                        <span className="text-slate-400">Motion:</span>{" "}
-                        {latestAiMessage?.motionStyle || "default"}
-                        {latestAiMessage?.activeAnimations && latestAiMessage.activeAnimations.length > 0 && (
-                          <span className="text-[10px] text-indigo-300 ml-1.5 font-normal">
-                            ({latestAiMessage.activeAnimations.join(", ")})
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Age:</span>{" "}
-                        {latestAiMessage?.age || 30}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Access:</span>{" "}
-                        {latestAiMessage?.wcagLevel || "AA"}
-                      </div>
-                      <div className="col-span-2 border-t border-slate-700/50 my-1 pt-1"></div>
-                      <div className="col-span-2 font-semibold text-slate-200">
-                        Generative Semantic Mapping:
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Base Theme:</span>{" "}
-                        {latestAiMessage?.baseTheme || "Minimalist"}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">BG Animation:</span>{" "}
-                        {latestAiMessage?.bgAnimationType || "none"}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Density:</span>{" "}
-                        {latestAiMessage?.particleDensity || 5}
-                      </div>
-                      <div>
-                        <span className="text-slate-400">Weather:</span>{" "}
-                        {latestAiMessage?.weatherOverlay || "none"}
+                {activeTab === "settings" && (() => {
+                  const goalDetails = getCommunicationGoalDetails(latestAiMessage?.sentiment ?? 0, latestAiMessage?.engagement ?? 0);
+                  const allSpans = latestAiMessage?.emphasizedWords || [];
+                  const activeAnims = latestAiMessage?.activeAnimations || [];
+                  const wcagLvl = latestAiMessage?.wcagLevel || 'A';
+
+                  const getPriority = (r?: string) => {
+                    if (!r) return 99;
+                    const role = r.toLowerCase();
+                    if (['warning', 'failure', 'destruction', 'instability'].includes(role)) return 1;
+                    if (['primary-action'].includes(role)) return 2;
+                    if (['success', 'delight'].includes(role)) return 3;
+                    if (['reassurance', 'empathy'].includes(role)) return 4;
+                    if (['important-keyword', 'important'].includes(role)) return 5;
+                    if (['secondary-action'].includes(role)) return 6;
+                    return 7;
+                  };
+
+                  const sortedSpans = [...allSpans].sort((a, b) => getPriority(a.semanticRole) - getPriority(b.semanticRole));
+                  const animLimit = Math.ceil(allSpans.length * goalDetails.budget.animation);
+                  const allowedAnimSpans = sortedSpans.slice(0, animLimit);
+
+                  const appliedAnimationsSet = new Set<string>();
+                  allSpans.forEach(span => {
+                    if (!span.semanticRole) return;
+                    const isAllowedByBudget = allowedAnimSpans.some(s => s.word === span.word);
+                    if (!isAllowedByBudget) return;
+
+                    const roleMapping = SEMANTIC_ROLE_MAP[span.semanticRole.toLowerCase()];
+                    if (!roleMapping) return;
+
+                    const mappedAnimId = roleMapping.animationId;
+                    if (!activeAnims.includes(mappedAnimId)) return;
+                    if (goalDetails.avoidAnimations.includes(mappedAnimId)) return;
+
+                    const highImpactAnimations = ['shake', 'jiggle', 'tremble', 'vibrate', 'jerk', 'glitch', 'shatter', 'slam', 'spin', '3d-spin'];
+                    if (highImpactAnimations.includes(mappedAnimId)) {
+                      const allowedRoles = ['instability', 'destruction', 'failure', 'physical-movement', 'playful'];
+                      if (!allowedRoles.includes(span.semanticRole.toLowerCase())) {
+                        return;
+                      }
+                    }
+
+                    let resolvedAnimation = mappedAnimId;
+
+                    if (wcagLvl === 'AA' || wcagLvl === 'AAA') {
+                      if (resolvedAnimation === 'shake' || resolvedAnimation === 'tremble' || resolvedAnimation === 'vibrate' || resolvedAnimation === 'shiver') {
+                        resolvedAnimation = 'pulse';
+                      } else if (resolvedAnimation === 'bounce' || resolvedAnimation === 'jump') {
+                        resolvedAnimation = 'pop';
+                      } else if (resolvedAnimation === 'spin' || resolvedAnimation === '3d-spin' || resolvedAnimation === 'flip') {
+                        resolvedAnimation = 'zoom';
+                      } else if (resolvedAnimation === 'glitch') {
+                        resolvedAnimation = 'default';
+                      }
+                    }
+
+                    if (wcagLvl === 'AAA') {
+                      const allowedAAAAnimations = ['fade', 'dissolve', 'default'];
+                      if (!allowedAAAAnimations.includes(resolvedAnimation)) {
+                        resolvedAnimation = (resolvedAnimation === 'fade' || resolvedAnimation === 'dissolve') ? resolvedAnimation : 'default';
+                      }
+                    }
+
+                    if (resolvedAnimation && resolvedAnimation !== 'default') {
+                      const animObj = ANIMATION_POOL.find(a => a.id === resolvedAnimation);
+                      appliedAnimationsSet.add(animObj ? animObj.name.toLowerCase() : resolvedAnimation.toLowerCase());
+                    }
+                  });
+
+                  const appliedAnimationsList = Array.from(appliedAnimationsSet);
+                  const motionDisplay = appliedAnimationsList.length > 0
+                    ? appliedAnimationsList.join(', ')
+                    : 'none';
+
+                  return (
+                    <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-slate-700/50 text-[11px] font-mono space-y-1.5 text-slate-300">
+                      <div className="grid grid-cols-4 gap-x-4 gap-y-1">
+                        <div className="col-span-4 pb-1 border-b border-slate-800/80 mb-1">
+                          <span className="text-slate-400">Affective State:</span>{" "}
+                          <span className="text-slate-200 font-semibold">{getClosestEmotion(latestAiMessage?.sentiment ?? 0, latestAiMessage?.engagement ?? 0)}</span>
+                        </div>
+                        
+                        {/* Row 1 (top half of the columns) */}
+                        <div>
+                          <span className="text-slate-400">Sentiment:</span>{" "}
+                          {(latestAiMessage?.sentiment ?? 0).toFixed(2)}
+                        </div>
+                        <div className="truncate" title={latestAiMessage?.fontFamily}>
+                          <span className="text-slate-400">Font:</span>{" "}
+                          {(latestAiMessage?.fontFamily || '"Inter"').replace(/"/g, "").split(",")[0]}
+                        </div>
+                        <div className="truncate" title={motionDisplay}>
+                          <span className="text-slate-400">Motion:</span> {motionDisplay}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Gender:</span>{" "}
+                          {latestAiMessage?.gender || "Neutral"}
+                        </div>
+
+                        {/* Row 2 (bottom half of the columns) */}
+                        <div>
+                          <span className="text-slate-400">Engagement:</span>{" "}
+                          {(latestAiMessage?.engagement ?? 0).toFixed(2)}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Size:</span>{" "}
+                          {latestAiMessage?.fontSize || 16}px
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Accessibility:</span>{" "}
+                          {latestAiMessage?.wcagLevel || "AA"}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Age:</span>{" "}
+                          {latestAiMessage?.age || 30}
+                        </div>
+
+                        {/* Generative Semantic Mapping */}
+                        <div className="col-span-4 border-t border-slate-700/50 my-1 pt-1"></div>
+                        <div className="col-span-4 font-semibold text-slate-200">
+                          Generative Semantic Mapping:
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Base Theme:</span>{" "}
+                          {latestAiMessage?.baseTheme || "Minimalist"}
+                        </div>
+                        <div className="truncate" title={latestAiMessage?.bgAnimationType || "none"}>
+                          <span className="text-slate-400">Background Animation:</span>{" "}
+                          {latestAiMessage?.bgAnimationType || "none"}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Density:</span>{" "}
+                          {latestAiMessage?.particleDensity || 5}
+                        </div>
+                        <div>
+                          <span className="text-slate-400">Weather:</span>{" "}
+                          {latestAiMessage?.weatherOverlay || "none"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {activeTab === "accessibility" && (
                   <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-slate-700/50 text-[11px] font-mono space-y-1.5 text-slate-300">

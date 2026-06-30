@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { DECORATION_POOL } from '../lib/decorations';
 import { ANIMATION_POOL } from '../lib/animations';
 import { ensureContrast, getRequiredContrast, getLuminance, hexToRgb, getContrastRatio } from '../lib/wcag';
+import { getCommunicationGoalDetails, SEMANTIC_ROLE_MAP } from '../lib/communicationModel';
+import { FONTS } from '../lib/fonts';
 
 interface KineticWordProps {
   key?: React.Key;
@@ -21,6 +23,10 @@ interface KineticWordProps {
   wcagLevel?: 'A' | 'AA' | 'AAA';
   wcagStrictMode?: boolean;
   forceColor?: string;
+  semanticRole?: string;
+  decorationAllowed?: boolean;
+  animationAllowed?: boolean;
+  enabledFonts?: string[];
 }
 
 export function KineticWord({ 
@@ -38,7 +44,11 @@ export function KineticWord({
   animationStability = true,
   wcagLevel = 'AA',
   wcagStrictMode = true,
-  forceColor
+  forceColor,
+  semanticRole,
+  decorationAllowed = false,
+  animationAllowed = false,
+  enabledFonts = []
 }: KineticWordProps) {
   const cleanWord = useMemo(() => word.trim().toLowerCase().replace(/[.,!?()[\]{}"']/g, ""), [word]);
   const isFillerWord = useMemo(() => {
@@ -55,6 +65,8 @@ export function KineticWord({
   if (!isEmphasized || isFillerWord) {
     return <span>{word}</span>;
   }
+
+  const goalDetails = getCommunicationGoalDetails(sentiment, engagement);
 
   const isPositive = sentiment >= 0;
   const isHighEngagement = engagement >= 0;
@@ -74,27 +86,53 @@ export function KineticWord({
   let initialX = 0;
   let initialRotate = 0;
 
+  // Spatial offsets based on user emotional state coordinates to preserve the kinetic feel
   if (isPositive && isHighEngagement) {
-    fontWeight = 700;
-    scale = 1.1 + (intensity * 0.1 * animationIntensity);
-    kineticFont = '"Inter", sans-serif';
-    initialY = 10 * intensity * animationIntensity;
-  } else if (!isPositive && isHighEngagement) {
-    fontWeight = 700;
-    scale = 1.15 + (intensity * 0.15 * animationIntensity);
-    kineticFont = '"Space Grotesk", sans-serif';
-    initialX = -10 * intensity * animationIntensity;
-    initialRotate = -5 * intensity * animationIntensity;
-  } else if (!isPositive && !isHighEngagement) {
-    fontWeight = 400;
-    scale = 0.95 - (intensity * 0.05 * animationIntensity);
-    kineticFont = '"JetBrains Mono", monospace';
-    initialY = -8 * intensity * animationIntensity;
-  } else if (isPositive && !isHighEngagement) {
-    fontWeight = 500;
     scale = 1.05 + (intensity * 0.05 * animationIntensity);
-    kineticFont = '"Playfair Display", serif';
-    initialY = 8 * intensity * animationIntensity;
+    initialY = 5 * intensity * animationIntensity;
+  } else if (!isPositive && isHighEngagement) {
+    scale = 1.05 + (intensity * 0.05 * animationIntensity);
+    initialX = -5 * intensity * animationIntensity;
+    initialRotate = -3 * intensity * animationIntensity;
+  } else if (!isPositive && !isHighEngagement) {
+    scale = 0.98 - (intensity * 0.03 * animationIntensity);
+    initialY = -4 * intensity * animationIntensity;
+  } else if (isPositive && !isHighEngagement) {
+    scale = 1.02 + (intensity * 0.03 * animationIntensity);
+    initialY = 4 * intensity * animationIntensity;
+  }
+
+  // Resolve Font Category based on Semantic Role and Communication Goal Details
+  if (semanticRole) {
+    const role = semanticRole.toLowerCase();
+    const isAAA = wcagLevel === 'AAA';
+    const isAA = wcagLevel === 'AA';
+
+    // Helper to find enabled font by name or category
+    const findFontByCategory = (cat: string) => {
+      const found = FONTS.find(f => f.category === cat && enabledFonts && enabledFonts.includes(f.name));
+      return found ? found.value : null;
+    };
+
+    if (['system-label', 'command', 'correction', 'revision'].includes(role)) {
+      // Monospace / Technical
+      const monoValue = findFontByCategory('Monospace / Technical') || '"JetBrains Mono", monospace';
+      kineticFont = monoValue;
+    } else if (['warning', 'failure', 'destruction', 'instability'].includes(role) && !isAAA) {
+      // Condensed / Cinematic (allowed if goal is Stress, Excitement, Neutral, etc.)
+      const isGoalAllowed = ['Stress', 'Excitement', 'Remain balanced'].includes(goalDetails.goal);
+      if (isGoalAllowed) {
+        const condensedValue = findFontByCategory('Condensed / Cinematic') || '"Bebas Neue", sans-serif';
+        kineticFont = condensedValue;
+      }
+    } else if (['empathy', 'delight', 'reassurance', 'playful'].includes(role) && !isAAA && !isAA) {
+      // Handwritten / Human (allowed for encouragement or delight under Joy, Sadness, Depression, Excitement)
+      const isGoalAllowed = ['Add warmth and encouragement', 'Be calm and gently motivating', 'Celebrate lightly', 'Match the user’s energy without becoming chaotic'].includes(goalDetails.goal);
+      if (isGoalAllowed) {
+        const handValue = findFontByCategory('Handwritten / Human') || '"Caveat", cursive';
+        kineticFont = handValue;
+      }
+    }
   }
 
   // Smart Affective Highlighting
@@ -125,58 +163,112 @@ export function KineticWord({
     emotionColor = forceColor;
   }
 
+
   // Global constraints for layout integrity
   scale = Math.min(1.1, Math.max(0.9, scale));
   initialY = Math.min(4, Math.max(-4, initialY));
   initialX = Math.min(4, Math.max(-4, initialX));
   initialRotate = Math.min(2, Math.max(-2, initialRotate));
 
-  // Select CSS decoration from pool
+  // Mapped style from semantic role
   let selectedCssDecoration: React.CSSProperties = {};
-  if (activeDecorations && activeDecorations.length > 0) {
-    const availableDecorations = DECORATION_POOL.filter(d => activeDecorations.includes(d.id));
-    if (availableDecorations.length > 0) {
-      const distances = availableDecorations.map(d => {
-        const dist = Math.sqrt(Math.pow(d.sentiment - sentiment, 2) + Math.pow(d.engagement - engagement, 2));
-        return { ...d, dist };
-      });
-      distances.sort((a, b) => a.dist - b.dist);
-      // Deterministically select the single closest emotional match for visual cohesion across words
-      const chosen = distances[0];
-      selectedCssDecoration = chosen.style;
+  let mappedDecoId = '';
+  let mappedAnimId = '';
+  
+  if (semanticRole) {
+    const roleMapping = SEMANTIC_ROLE_MAP[semanticRole.toLowerCase()];
+    if (roleMapping) {
+      mappedDecoId = roleMapping.decorationId;
+      mappedAnimId = roleMapping.animationId;
     }
   }
 
-  // Select animation from pool
-  const chosenAnimation = useMemo(() => {
-    if (activeAnimations && activeAnimations.length > 0) {
-      const availableAnimations = ANIMATION_POOL.filter(a => activeAnimations.includes(a.id));
-      if (availableAnimations.length > 0) {
-        const distances = availableAnimations.map(a => {
-          const dist = Math.sqrt(
-            Math.pow((a.sentiment - sentiment) * emotionInfluence, 2) + 
-            Math.pow((a.engagement - engagement) * emotionInfluence, 2)
-          );
-          return { ...a, dist };
-        });
-        
-        distances.sort((a, b) => a.dist - b.dist);
-        const topN = distances.slice(0, Math.min(3, distances.length));
-        
-        let hash = 0;
-        if (animationStability) {
-          hash = word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        } else {
-          hash = Math.floor(Math.random() * 10000);
-        }
-        
-        return topN[hash % topN.length].id;
+  // 1. Resolve Decoration
+  if (decorationAllowed && mappedDecoId && activeDecorations && activeDecorations.includes(mappedDecoId)) {
+    // Check if the goal avoids this decoration
+    if (!goalDetails.avoidDecorations.includes(mappedDecoId)) {
+      const chosenDeco = DECORATION_POOL.find(d => d.id === mappedDecoId);
+      if (chosenDeco) {
+        selectedCssDecoration = chosenDeco.style;
       }
     }
-    return motionStyle;
-  }, [activeAnimations, sentiment, engagement, emotionInfluence, animationStability, word, motionStyle]);
+  }
 
-  let selectedAnimation = chosenAnimation;
+  // Update default weights / styles if decoration is applied
+  if (selectedCssDecoration.fontWeight) {
+    fontWeight = Number(selectedCssDecoration.fontWeight) || 700;
+  }
+
+  // 2. Resolve Animation
+  let resolvedAnimation = 'default';
+  
+  if (animationAllowed && mappedAnimId && activeAnimations && activeAnimations.includes(mappedAnimId)) {
+    let isAllowed = !goalDetails.avoidAnimations.includes(mappedAnimId);
+    
+    // Step 5: Restrict high-impact animations heavily
+    const highImpactAnimations = ['shake', 'jiggle', 'tremble', 'vibrate', 'jerk', 'glitch', 'shatter', 'slam', 'spin', '3d-spin'];
+    if (highImpactAnimations.includes(mappedAnimId)) {
+      const allowedRoles = ['instability', 'destruction', 'failure', 'physical-movement', 'playful'];
+      if (!semanticRole || !allowedRoles.includes(semanticRole.toLowerCase())) {
+        isAllowed = false; // Restrict it because the role doesn't explicitly warrant it
+      }
+    }
+
+    if (isAllowed) {
+      resolvedAnimation = mappedAnimId;
+    }
+  }
+
+  // 3. Accessibility Overrides (Step 6)
+  let accessibilityForcedDeco: React.CSSProperties = {};
+  if (wcagLevel === 'AA' || wcagLevel === 'AAA') {
+    if (resolvedAnimation === 'shake' || resolvedAnimation === 'tremble' || resolvedAnimation === 'vibrate' || resolvedAnimation === 'shiver') {
+      resolvedAnimation = 'pulse';
+    } else if (resolvedAnimation === 'bounce' || resolvedAnimation === 'jump') {
+      resolvedAnimation = 'pop';
+    } else if (resolvedAnimation === 'spin' || resolvedAnimation === '3d-spin' || resolvedAnimation === 'flip') {
+      resolvedAnimation = 'zoom';
+    } else if (resolvedAnimation === 'glitch') {
+      resolvedAnimation = 'default';
+      const highlightDeco = DECORATION_POOL.find(d => d.id === 'ts-highlight');
+      if (highlightDeco) {
+        accessibilityForcedDeco = { ...accessibilityForcedDeco, ...highlightDeco.style };
+      }
+    }
+  }
+
+  if (wcagLevel === 'AAA') {
+    const allowedAAAAnimations = ['fade', 'dissolve', 'default'];
+    if (!allowedAAAAnimations.includes(resolvedAnimation)) {
+      if (resolvedAnimation === 'fade' || resolvedAnimation === 'dissolve') {
+        // Keep
+      } else {
+        resolvedAnimation = 'default';
+      }
+    }
+
+    // Force AAA decorations (Bold, Highlight Shadow, Soft Shadow)
+    if (semanticRole) {
+      const lowerRole = semanticRole.toLowerCase();
+      if (['warning', 'failure', 'destruction', 'important-keyword', 'important', 'primary-action'].includes(lowerRole)) {
+        fontWeight = 700;
+        const highlightDeco = DECORATION_POOL.find(d => d.id === 'ts-highlight');
+        if (highlightDeco) {
+          accessibilityForcedDeco = { ...accessibilityForcedDeco, ...highlightDeco.style };
+        }
+      } else if (['reassurance', 'empathy'].includes(lowerRole)) {
+        const softDeco = DECORATION_POOL.find(d => d.id === 'ts-soft');
+        if (softDeco) {
+          accessibilityForcedDeco = { ...accessibilityForcedDeco, ...softDeco.style };
+        }
+      }
+    }
+  }
+
+  // Combine resolved decoration with accessibility overrides
+  selectedCssDecoration = { ...selectedCssDecoration, ...accessibilityForcedDeco };
+
+  let selectedAnimation = resolvedAnimation;
 
   // WCAG Enforcement
   let finalCssDecoration = { ...selectedCssDecoration };
