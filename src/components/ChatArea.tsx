@@ -686,8 +686,6 @@ export function ChatArea({
     return "READY / LISTENING";
   };
 
-  const isInputDisabled = isTyping || (latestAiMessage ? currentSegmentIndex < segments.length - 1 : false);
-
   useEffect(() => {
     setCurrentSegmentIndex(0);
   }, [messages.length]);
@@ -2003,12 +2001,11 @@ export function ChatArea({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message..."
-              disabled={isInputDisabled}
               className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow disabled:opacity-50 disabled:bg-slate-100 text-sm"
             />
             <button
               type="submit"
-              disabled={!input.trim() || isInputDisabled}
+              disabled={!input.trim() || isTyping}
               className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors"
             >
               <Send className="w-5 h-5" />
