@@ -172,3 +172,18 @@ The project combines:
 The result is a unified AI communication experience that reacts dynamically to both content and user interaction.
 
 Rather than presenting AI responses as static blocks of text, Affective Kinetic Type transforms conversation into a living visual system where language, motion, atmosphere, and interface behavior work together to reinforce meaning and emotional tone.
+
+⸻
+
+## 🧠 Research Foundation
+
+This project’s affective modeling is based on the Circumplex Model of Affect, a psychological framework developed by James A. Russell that organizes emotions along the dimensions of valence (pleasantness) and arousal (activation).
+
+### Reference
+
+Russell, J. A. (1980). A Circumplex Model of Affect. *Journal of Personality and Social Psychology*, 39(6), 1161-1178.
+
+[https://doi.org/10.1037/h0077714](https://doi.org/10.1037/h0077714)
+
+Full text:
+[https://pdodds.w3.uvm.edu/research/papers/others/1980/russell1980a.pdf](https://pdodds.w3.uvm.edu/research/papers/others/1980/russell1980a.pdf)
