@@ -97,6 +97,7 @@ export async function generateLMStudioResponse(
   particleDensity: number;
   weatherOverlay: string;
   contextualEffect: any;
+  followUpQuestion: string | null;
 }> {
   const url = config.url.replace(/\/+$/, '');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -104,7 +105,7 @@ export async function generateLMStudioResponse(
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
 
-  const jsonSchema = `{"thinking":"string","text":"string","segments":[{"text":"string","scale":"normal|large|small|oversized|massive","alignment":"center|left|right","fontVariant":"string"}],"keywords":[{"word":"string","semanticRole":"string"}],"motionStyle":"string","bgPrompt":"string","baseTheme":"string","bgAnimationType":"string","particleDensity":5,"weatherOverlay":"none","weatherEffect":"none","contextualEffect":{"type":"none","subject":"none","imageUrl":"none","animation":"none","placement":"none"}}`;
+  const jsonSchema = `{"thinking":"string","text":"string","segments":[{"text":"string","scale":"normal|large|small|oversized|massive","alignment":"center|left|right","fontVariant":"string"}],"keywords":[{"word":"string","semanticRole":"string"}],"motionStyle":"string","bgPrompt":"string","baseTheme":"string","bgAnimationType":"string","particleDensity":5,"weatherOverlay":"none","weatherEffect":"none","contextualEffect":{"type":"none","subject":"none","imageUrl":"none","animation":"none","placement":"none"},"followUpQuestion":"string|null"}`;
 
   const chatMessages = [
     {
@@ -219,6 +220,7 @@ export async function generateLMStudioResponse(
       particleDensity: result.particleDensity || 5,
       weatherOverlay: result.weatherOverlay || 'none',
       contextualEffect: result.contextualEffect || { type: 'none', subject: 'none', imageUrl: 'none', animation: 'none', placement: 'none' },
+      followUpQuestion: result.followUpQuestion || null
     };
   }
 
@@ -271,5 +273,6 @@ export async function generateLMStudioResponse(
     particleDensity: 5,
     weatherOverlay: 'none',
     contextualEffect: { type: 'none', subject: 'none', imageUrl: 'none', animation: 'none', placement: 'none' },
+    followUpQuestion: null
   };
 }

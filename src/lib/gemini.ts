@@ -59,6 +59,8 @@ export interface ChatMessage {
   particleDensity?: number;
   weatherOverlay?: string;
   contextualEffect?: ContextualEffect;
+  followUpQuestion?: string | null;
+  decayStartTime?: number | null;
 }
 
 export async function generateResponse(
@@ -82,7 +84,8 @@ export async function generateResponse(
   bgAnimationType: string,
   particleDensity: number,
   weatherOverlay: string,
-  contextualEffect?: ContextualEffect
+  contextualEffect?: ContextualEffect,
+  followUpQuestion: string | null
 }> {
   let history = messages.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -167,6 +170,27 @@ ${goalDetails.fontRules}
 Active Accessibility Font Rules:
 ${accessibilityFontRule}
 
+CONDITIONAL FOLLOW-UP QUESTION RULES:
+The default behavior is no follow-up (return empty string or null in followUpQuestion).
+Only generate a follow-up question when it materially advances the user’s current task.
+Trigger Conditions (Generate ONLY if at least one is true):
+- The user’s request is incomplete or open-ended by nature.
+- The response produces multiple viable paths, decisions, or configurations.
+- Additional clarification would significantly improve precision or usefulness.
+- The user explicitly requests iterative refinement, expansion, or comparison.
+- The output contains structured options that require selection or prioritization.
+Do NOT generate follow-ups when:
+- The response is informational or explanatory and complete.
+- The task has a clear endpoint and no meaningful branching.
+- The user intent is satisfied by a single coherent output.
+- The system is summarizing, defining, or describing without actionable next steps.
+Follow-Up Construction:
+- It must be tightly scoped to the current context.
+- It must introduce a concrete next action (e.g. "Compare these options by cost or performance?" or "Prioritize speed or accuracy for the next iteration?"), not a generic continuation.
+- It must not repeat or paraphrase the completed response.
+- It must avoid conversational filler (e.g., "Would you like to know more?", "Is there anything else?").
+- It must be optional in tone, not directive or demanding.
+
 AFFECTIVE RENDERING PRINCIPLES:
 Emotion is not a visual theme. Emotion influences timing, pacing, structure, density, diffusion, compression, and visual pressure. Proactively infer latent emotional qualities from the user input (tension, uncertainty, exhaustion, relief, awe, intimacy, etc.) and translate these into kinetic properties.
 
@@ -181,40 +205,19 @@ Generate cohesive atmospheric scenes by inferring the PRIMARY CONVERSATIONAL SCE
 2. Location Interpretation: For locations, prioritize emotional/atmospheric identity (e.g., Seattle -> "overcast cinematic glow, pine silhouettes", Italy -> "Mediterranean warmth, textured stone"). 
 3. Scene Variety: Intentionally seek visual diversity. Rotate intelligently between environment categories: GEOGRAPHIC, CULTURAL, EMOTIONAL, CINEMATIC, ABSTRACT, MEMORY/ANTICIPATION. Deprioritize weather.
 
-You must return a JSON object containing eleven fields:
+You must return a JSON object containing twelve fields:
 1. "thinking": A brief explanation of how the user's latent emotional state influenced your response structure, affective rendering, and visual pacing.
-2. "segments": A natural, conversational response to the user, split into expressive chunks (such as complete clauses or full sentences) to create a visual rhythm. Avoid returning isolated single-word tags or keyword labels; the combined segments MUST read together as a fully formed, coherent conversational reply. Return an array of objects. Each object must have:
-   - "text": The textual content of the chunk.
-   - "scale": Typographic scale ("small", "normal", "large", "oversized", "massive"). Use oversized/massive rarely, for high emotional impact.
-   - "alignment": Spatial placement ("left", "center", "right", "justify"). Vary to create cascading or asymmetrical structures.
-   - "fontVariant": Typographic pairing (MUST be one of the explicitly provided available fonts). Use font changes to signify shifts in tone.
-3. "keywords": An array of objects representing semantic spans or phrases to style.
-   - Each object must contain the "word" (the exact phrase from your response to style) AND "semanticRole" (e.g., "reassurance", "warning", etc.).
-4. "motionStyle": A single string representing the creative motion to apply to the keywords. Select a UNIQUE motion style for each response, matching the quadrant of Sentiment and Engagement. 
-- Quadrant 1 (Pos, High Eng): "bounce", "spin", "3d-spin", "jump", "pop", "flip", "jiggle", "sparkle"
-- Quadrant 2 (Neg, High Eng): "shake", "pulse", "shiver", "glitch", "tremble", "slam", "vibrate"
-- Quadrant 3 (Neg, Low Eng): "sink", "fade", "droop", "melt", "sigh", "blur", "drift-down"
-- Quadrant 4 (Pos, Low Eng): "wave", "float", "breathe", "sway", "glide", "drift-up", "shimmer", "zoom"
-DO NOT repeat the same motion style iteratively.
-5. "bgPrompt": A highly descriptive image generation prompt. DO NOT use generic stock-photo descriptions, literal tourist landmarks, or high-contrast weather unless specifically demanded. Compose for cinematic depth, low contrast, partial environmental fragments, layered atmosphere, and emotional identity based on the semantic priorities. Avoid cluttered collages and sharp edges.
-6. "baseTheme": The primary visual aesthetic category. MUST be one of: Minimalist, Brutalist, Glassmorphism, Organic, Geometric, Atmospheric.
-7. "bgAnimationType": A generative background scene matching the semantics. Do NOT feel like every response requires a background animation. Default to "none" unless highly relevant to the semantic context of the conversation. Select one from:
-  [Geometric]: GridShift, Isostep, Crosshatch, Loom, Prism, Circuitry, Honeycomb, Blueprint, Ascent, Parallax_Planes.
-  [Atmospheric]: Mist_Veil, Heat_Haze, Aurora, Drizzle, Blizzard, Tide, Eclipse, Solar_Flare, Petal_Drift, Static, Prism_Refraction.
-  [Organic]: Blob_Morph, Mycelium, Diffusion, Swirl, Pulse_Core, Tendril, Caustic, Soft_Focus, Lava, Bloom, Bioluminescence.
-  [Minimalist]: Dot_Matrix, Scanline, Flicker, Floaters, Breathing, Trace, Marquee, Strobe_Soft, Minimal_Vortex, Shadow_Play, Golden_Hour, Halo.
-  [High-Energy]: Confetti_Pop, Streamers, Pyrotechnic, Glitch, Hyperdrive, Bounce_Ball, Radiance, ZigZag, Pixel_Rain, Kaleidoscope.
-  Or "none". Make sure it aligns with the Standardized Design Theme.
-  ANTI-REPETITION PROTOCOL: Do NOT repeat the same bgAnimationType in back-to-back responses. Cycle through at least 5 variants. If "none", you may repeat it.
-8. "particleDensity": A number from 1 to 10 based on environment intensity.
-9. "weatherOverlay": Environmental Sub-States / Time of Day to change the vibe. Do NOT feel like every interaction requires an overlay. Choose wisely based on semantic context, otherwise return "none". (e.g., return "eclipse" ONLY if eclipses, moons, deep solar shadows, or celestial alignment are explicitly relevant to the user's text; return "rain" only if wet weather, storm, or sadness/depression is explicitly discussed). Choose from: "Pre-Dawn", "Overcast", "High-Noon", "rain", "fog", "snow", "eclipse", "sun", "clouds". Otherwise, "none".
-10. "weatherEffect": (Legacy mapping) A string representing a legacy background scene. Otherwise, return "none".
-11. "contextualEffect": An object identifying any specific sport, location, or distinctive topic mentioned, enabling custom interactive overlay cards or watermarks:
-   - "type": MUST be 'sport' (if user mentions sports or specific ball games), 'location' (if user mentions cities/countries/landmarks), 'other' (if other physical topics like cat, dog, food, music are mentioned), or 'none'.
-   - "subject": The specific subject mentioned, lowercase (e.g., 'soccer', 'tennis', 'london', 'paris', 'tokyo', 'basketball', 'cat'). If none, return 'none'.
-   - "imageUrl": A highly specific image prompt to generate a transparent or white background illustration or high-quality styled sticker/icon representing the subject. For locations, make it a descriptive photo cue like "Eiffel tower, vintage travel illustration" or "Big Ben silhouette icon, minimalist white vector, transparent background". For sports, make it an icon cue like "tennis racket and tennis ball flat vector graphic, transparent background". If none, return 'none'.
-   - "animation": MUST be 'roll' (for sports with round balls like soccer, tennis, basketball), 'float' (for locations or static objects), 'bounce', 'slide', or 'none'. MUST NOT be 'none' if a sport or location is identified.
-   - "placement": MUST be 'background' (faint silhouette landmark watermarks behind text), 'bottom-right' (as a beautiful corner Polaroid travel stamp/badge), or 'none'. CRITICAL: If a sport is identified, placement MUST be 'bottom-right'. If a location is identified, placement MUST be 'bottom-right' or 'background'. NEVER return 'none' for placement or animation if a sport or location is successfully identified.`;
+2. "text": The complete, single string of the response. This is the source of truth, fully formed and grammatically correct.
+3. "segments": A natural, conversational response to the user, split into expressive chunks (such as complete clauses or full sentences) to create a visual rhythm.
+4. "keywords": An array of objects representing semantic spans or phrases to style.
+5. "motionStyle": A single string representing the creative motion to apply to the keywords.
+6. "bgPrompt": A highly descriptive image generation prompt.
+7. "baseTheme": The primary visual aesthetic category.
+8. "bgAnimationType": A generative background scene matching the semantics.
+9. "particleDensity": A number from 1 to 10.
+10. "weatherOverlay": Environmental Sub-States or specific weather overlay.
+11. "weatherEffect": (Legacy mapping) A string representing a legacy background scene.
+12. "followUpQuestion": A tightly scoped follow-up question if one of the trigger conditions is met; otherwise return an empty string or null.`;
 
   console.log(`Calling Gemini API with model '${model}'...`);
   console.log("History sent to Gemini:", history);
@@ -309,9 +312,13 @@ DO NOT repeat the same motion style iteratively.
                   placement: { type: Type.STRING }
                 },
                 required: ["type", "subject", "imageUrl", "animation", "placement"]
+              },
+              followUpQuestion: {
+                type: Type.STRING,
+                description: "A concrete, optionally scoped next step question if triggers match, else empty string or null."
               }
             },
-            required: ["thinking", "text", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect"]
+            required: ["thinking", "text", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect", "followUpQuestion"]
           }
         }
       });
@@ -341,7 +348,8 @@ DO NOT repeat the same motion style iteratively.
         bgAnimationType: result.bgAnimationType || "none",
         particleDensity: result.particleDensity || 5,
         weatherOverlay: result.weatherOverlay || "none",
-        contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" }
+        contextualEffect: result.contextualEffect || { type: "none", subject: "none", imageUrl: "none", animation: "none", placement: "none" },
+        followUpQuestion: result.followUpQuestion || null
       };
 
     } catch (err: any) {
