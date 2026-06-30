@@ -1728,7 +1728,7 @@ export function ChatArea({
         {hasUserMessages && !isTyping && !isTabsCollapsed && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 197, opacity: 1 }}
+            animate={{ height: 193, opacity: 1 }}
             exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
             transition={{ 
               duration: 0.25, 
