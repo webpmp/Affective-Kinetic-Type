@@ -1891,7 +1891,7 @@ export function ChatArea({
                           {latestAiMessage?.baseTheme || "Minimalist"}
                         </div>
                         <div className="truncate" title={latestAiMessage?.bgAnimationType || "none"}>
-                          <span className="text-slate-400">Background Animation:</span>{" "}
+                          <span className="text-slate-400">Background:</span>{" "}
                           {latestAiMessage?.bgAnimationType || "none"}
                         </div>
                         <div>
