@@ -15,8 +15,18 @@ interface ControlPanelProps {
   onEnabledFontsChange: (fonts: string[]) => void;
   fontSize: number;
   onFontSizeChange: (size: number) => void;
-  fontColor: string;
-  onFontColorChange: (color: string) => void;
+  fontWeightDefault: 'light' | 'regular' | 'medium' | 'semibold' | 'bold';
+  onFontWeightDefaultChange: (val: 'light' | 'regular' | 'medium' | 'semibold' | 'bold') => void;
+  trackingDefault: number;
+  onTrackingDefaultChange: (val: number) => void;
+  textCaseDefault: 'auto' | 'sentence' | 'title' | 'uppercase';
+  onTextCaseDefaultChange: (val: 'auto' | 'sentence' | 'title' | 'uppercase') => void;
+  alignmentDefault: 'auto' | 'left' | 'center' | 'right';
+  onAlignmentDefaultChange: (val: 'auto' | 'left' | 'center' | 'right') => void;
+  textContrastDefault: 'auto' | 'light' | 'dark';
+  onTextContrastDefaultChange: (val: 'auto' | 'light' | 'dark') => void;
+  contrastEnhancement: number;
+  onContrastEnhancementChange: (val: number) => void;
   age: number;
   onAgeChange: (age: number) => void;
   gender: string;
@@ -31,8 +41,6 @@ interface ControlPanelProps {
   onAnimationIntensityChange: (val: number) => void;
   maxAnimatedKeywords: number;
   onMaxAnimatedKeywordsChange: (val: number) => void;
-  animationStability: boolean;
-  onAnimationStabilityChange: (val: boolean) => void;
   wcagLevel: 'A' | 'AA' | 'AAA';
   onWcagLevelChange: (level: 'A' | 'AA' | 'AAA') => void;
   wcagStrictMode: boolean;
@@ -45,10 +53,8 @@ interface ControlPanelProps {
   onGradientColor2Change: (color: string) => void;
   gradientDirection: string;
   onGradientDirectionChange: (direction: string) => void;
-  conversationMode: boolean;
-  onConversationModeChange: (val: boolean) => void;
-  messageInterval: number;
-  onMessageIntervalChange: (val: number) => void;
+  playbackSpeed: number;
+  onPlaybackSpeedChange: (val: number) => void;
   aiProvider: AIProvider;
   onAIProviderChange: (provider: AIProvider) => void;
   onOpenLMStudioSettings?: () => void;
@@ -67,8 +73,18 @@ export function ControlPanel({
   onEnabledFontsChange,
   fontSize,
   onFontSizeChange,
-  fontColor,
-  onFontColorChange,
+  fontWeightDefault,
+  onFontWeightDefaultChange,
+  trackingDefault,
+  onTrackingDefaultChange,
+  textCaseDefault,
+  onTextCaseDefaultChange,
+  alignmentDefault,
+  onAlignmentDefaultChange,
+  textContrastDefault,
+  onTextContrastDefaultChange,
+  contrastEnhancement,
+  onContrastEnhancementChange,
   age,
   onAgeChange,
   gender,
@@ -83,8 +99,6 @@ export function ControlPanel({
   onAnimationIntensityChange,
   maxAnimatedKeywords,
   onMaxAnimatedKeywordsChange,
-  animationStability,
-  onAnimationStabilityChange,
   wcagLevel,
   onWcagLevelChange,
   wcagStrictMode,
@@ -97,10 +111,8 @@ export function ControlPanel({
   onGradientColor2Change,
   gradientDirection,
   onGradientDirectionChange,
-  conversationMode,
-  onConversationModeChange,
-  messageInterval,
-  onMessageIntervalChange,
+  playbackSpeed,
+  onPlaybackSpeedChange,
   aiProvider,
   onAIProviderChange,
   onOpenLMStudioSettings,
@@ -368,10 +380,10 @@ export function ControlPanel({
                 </div>
               </div>
 
-              {/* Font Size */}
+              {/* Default Font Size */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-slate-600">Base Size</label>
+                  <label className="text-sm font-medium text-slate-600">Default Font Size</label>
                   <span className="text-xs text-slate-400 font-mono">{fontSize}px</span>
                 </div>
                 <input
@@ -385,25 +397,98 @@ export function ControlPanel({
                 />
               </div>
 
-              {/* Font Color */}
+              {/* Weight */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-slate-500" />
-                  <label className="text-sm font-medium text-slate-600">Base Color</label>
+                <label className="text-sm font-medium text-slate-600 block">Weight</label>
+                <select
+                  value={fontWeightDefault}
+                  onChange={(e) => onFontWeightDefaultChange(e.target.value as any)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="light">Light</option>
+                  <option value="regular">Regular</option>
+                  <option value="medium">Medium</option>
+                  <option value="semibold">Semi Bold</option>
+                  <option value="bold">Bold</option>
+                </select>
+              </div>
+
+              {/* Tracking */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-slate-600">Tracking</label>
+                  <span className="text-xs text-slate-400 font-mono">{trackingDefault > 0 ? `+${trackingDefault}` : trackingDefault}</span>
                 </div>
-                <div className="flex gap-2">
-                  {['#1e293b', '#334155', '#475569', '#0f172a', '#172554'].map(color => (
-                    <button
-                      key={color}
-                      onClick={() => onFontColorChange(color)}
-                      className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
-                        fontColor === color ? 'border-indigo-500 scale-110' : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      aria-label={`Select color ${color}`}
-                    />
-                  ))}
+                <input
+                  type="range"
+                  min="-10"
+                  max="30"
+                  step="1"
+                  value={trackingDefault}
+                  onChange={(e) => onTrackingDefaultChange(Number(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
+              </div>
+
+              {/* Case */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600 block">Case</label>
+                <select
+                  value={textCaseDefault}
+                  onChange={(e) => onTextCaseDefaultChange(e.target.value as any)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="auto">Automatic</option>
+                  <option value="sentence">Sentence Case</option>
+                  <option value="title">Title Case</option>
+                  <option value="uppercase">UPPERCASE</option>
+                </select>
+              </div>
+
+              {/* Alignment */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600 block">Alignment</label>
+                <select
+                  value={alignmentDefault}
+                  onChange={(e) => onAlignmentDefaultChange(e.target.value as any)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="auto">Automatic</option>
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+
+              {/* Text Contrast */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600 block">Text Contrast</label>
+                <select
+                  value={textContrastDefault}
+                  onChange={(e) => onTextContrastDefaultChange(e.target.value as any)}
+                  className="w-full text-xs bg-white border border-slate-200 rounded p-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
+
+              {/* Contrast Enhancement */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium text-slate-600">Contrast Enhancement</label>
+                  <span className="text-xs text-slate-400 font-mono">{contrastEnhancement}%</span>
                 </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={contrastEnhancement}
+                  onChange={(e) => onContrastEnhancementChange(Number(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
               </div>
             </>
           ))}
@@ -522,7 +607,7 @@ export function ControlPanel({
             <>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <label className="text-sm font-medium text-slate-600">Emotion Influence</label>
+                  <label className="text-sm font-medium text-slate-600">Emotional Influence</label>
                   <span className="text-xs text-slate-400">{emotionInfluence.toFixed(1)}x</span>
                 </div>
                 <input 
@@ -532,7 +617,7 @@ export function ControlPanel({
                   onChange={(e) => onEmotionInfluenceChange(parseFloat(e.target.value))}
                   className="w-full accent-indigo-600"
                 />
-                <p className="text-[10px] text-slate-400 leading-tight">Scales how strongly sentiment/engagement affect selection.</p>
+                <p className="text-[10px] text-slate-400 leading-tight">How much emotion affects presentation.</p>
               </div>
 
               <div className="space-y-2">
@@ -547,33 +632,23 @@ export function ControlPanel({
                   onChange={(e) => onAnimationIntensityChange(parseFloat(e.target.value))}
                   className="w-full accent-indigo-600"
                 />
-                <p className="text-[10px] text-slate-400 leading-tight">Adjusts amplitude, speed, and duration.</p>
+                <p className="text-[10px] text-slate-400 leading-tight">How energetic the animations are.</p>
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <label className="text-sm font-medium text-slate-600">Max Animated Keywords</label>
+                  <label className="text-sm font-medium text-slate-600">Animated Word Limit</label>
                   <span className="text-xs text-slate-400">{maxAnimatedKeywords}</span>
                 </div>
                 <input 
                   type="range" 
-                  min="1" max="10" step="1" 
+                  min="0" max="20" step="1" 
                   value={maxAnimatedKeywords}
                   onChange={(e) => onMaxAnimatedKeywordsChange(parseInt(e.target.value))}
                   className="w-full accent-indigo-600"
                 />
+                <p className="text-[10px] text-slate-400 leading-tight">How many words receive special treatment.</p>
               </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <label className="text-sm font-medium text-slate-600">Animation Stability</label>
-                <button
-                  onClick={() => onAnimationStabilityChange(!animationStability)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${animationStability ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                >
-                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${animationStability ? 'translate-x-5' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-400 leading-tight -mt-1">Maintains consistent animation per keyword.</p>
             </>
           ))}
         </section>
@@ -777,38 +852,28 @@ export function ControlPanel({
 
         {/* 9. Playback & Timing */}
         <section className={cardClasses}>
-          <SectionHeader title="Playback & Timing" icon={Clock} sectionKey="playback" badge={conversationMode ? "AUTO" : "MANUAL"} />
+          <SectionHeader title="Playback & Timing" icon={Clock} sectionKey="playback" badge="AUTO" />
           {renderSectionContent('playback', (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700">Conversation Mode</label>
-                <button
-                  onClick={() => onConversationModeChange(!conversationMode)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${conversationMode ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${conversationMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              <p className="text-xs text-slate-500">
-                When enabled, segments play automatically. When disabled, use manual navigation.
-              </p>
-
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <label className="text-sm font-medium text-slate-700">Message Interval</label>
-                  <span className="text-sm text-slate-500">{messageInterval}s</span>
+                  <label className="text-sm font-medium text-slate-700">Playback Speed</label>
+                  <span className="text-sm font-semibold text-indigo-600">{playbackSpeed}x</span>
                 </div>
                 <input
                   type="range"
-                  min="10"
-                  max="60"
+                  min="0"
+                  max="5"
                   step="1"
-                  value={messageInterval}
-                  onChange={(e) => onMessageIntervalChange(Number(e.target.value))}
+                  value={[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].indexOf(playbackSpeed) !== -1 ? [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].indexOf(playbackSpeed) : 2}
+                  onChange={(e) => {
+                    const SPEED_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+                    onPlaybackSpeedChange(SPEED_STEPS[Number(e.target.value)]);
+                  }}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
                 <p className="text-xs text-slate-500">
-                  Duration each segment is visible before transitioning (10-60s).
+                  Controls how quickly animated text is presented.
                 </p>
               </div>
             </div>

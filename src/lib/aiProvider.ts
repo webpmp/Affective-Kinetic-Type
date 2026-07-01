@@ -128,13 +128,24 @@ export async function generateLMStudioResponse(
     body.model = config.modelId;
   }
 
-  console.log('[LM Studio] Sending request to', `${url}/v1/chat/completions`, 'with body:', body);
+  // --- DIAGNOSTICS: PHASE 1 REQUEST LOGGING ---
+  console.group('[LM Studio Diagnostics] Request Details');
+  console.log('API Endpoint:', `${url}/v1/chat/completions`);
+  console.log('Model ID Configured:', config.modelId || 'Default / Not Specified');
+  console.log('Request Payload Body:', JSON.stringify(body, null, 2));
+  console.log('Complete System Prompt String:', systemPrompt);
+  console.log('Messages Array Sent:', JSON.stringify(chatMessages, null, 2));
+  console.groupEnd();
+
+  const requestStartTime = performance.now();
 
   const response = await fetch(`${url}/v1/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   });
+
+  const firstByteTime = performance.now();
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
@@ -148,21 +159,56 @@ export async function generateLMStudioResponse(
   }
 
   const data = await response.json();
+  const responseEndTime = performance.now();
   const rawContent = data?.choices?.[0]?.message?.content || '';
 
-  console.log('[LM Studio] Raw response:', rawContent);
+  // --- DIAGNOSTICS: PHASE 1 RESPONSE LOGGING ---
+  console.group('[LM Studio Diagnostics] Response Details');
+  console.log('Raw Response JSON Payload:', JSON.stringify(data, null, 2));
+  console.log('Streaming Enabled:', body.stream || false);
+  console.log('Request Timing (ms):', {
+    totalDuration: responseEndTime - requestStartTime,
+    firstByteLatency: firstByteTime - requestStartTime,
+    processingDuration: responseEndTime - firstByteTime
+  });
+  console.log('Response Metadata:', {
+    finishReason: data?.choices?.[0]?.finish_reason || 'Unknown',
+    usage: data?.usage || 'No usage object provided',
+    promptTokens: data?.usage?.prompt_tokens,
+    completionTokens: data?.usage?.completion_tokens,
+    totalTokens: data?.usage?.total_tokens
+  });
+  console.log('Parsed Content Length (Characters):', rawContent.length);
+  console.log('Final Assistant Content Passed to Pipeline:', rawContent);
+  console.groupEnd();
+
+  const unescapeText = (str: string): string => {
+    if (!str) return '';
+    return str
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '\r')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  };
 
   const tryParseJSON = (str: string): any | null => {
     if (!str.trim()) return null;
     
-    const isValidRoot = (obj: any) => {
-      return obj && typeof obj === 'object' && ('segments' in obj || 'thinking' in obj || 'motionStyle' in obj || 'bgPrompt' in obj);
+    const normalizeParsedObject = (obj: any): any | null => {
+      if (!obj || typeof obj !== 'object') return null;
+      const res = { ...obj };
+      if (!res.text) {
+        res.text = res.response || res.message || res.content || '';
+      }
+      return res;
     };
 
     // 1. Direct parse
     try {
       const parsed = JSON.parse(str.trim());
-      if (isValidRoot(parsed)) return parsed;
+      const normalized = normalizeParsedObject(parsed);
+      if (normalized) return normalized;
     } catch {}
     
     // 2. Scan braces
@@ -174,7 +220,8 @@ export async function generateLMStudioResponse(
         const candidate = str.slice(idx, lastBrace + 1);
         try {
           const parsed = JSON.parse(candidate);
-          if (isValidRoot(parsed)) return parsed;
+          const normalized = normalizeParsedObject(parsed);
+          if (normalized) return normalized;
         } catch {}
         idx = str.indexOf('{', idx + 1);
       }
@@ -184,7 +231,8 @@ export async function generateLMStudioResponse(
         const candidate = str.slice(firstBrace, rIdx + 1);
         try {
           const parsed = JSON.parse(candidate);
-          if (isValidRoot(parsed)) return parsed;
+          const normalized = normalizeParsedObject(parsed);
+          if (normalized) return normalized;
         } catch {}
         rIdx = str.lastIndexOf('}', rIdx - 1);
       }
@@ -195,7 +243,8 @@ export async function generateLMStudioResponse(
     if (fenceMatch) {
       try {
         const parsed = JSON.parse(fenceMatch[1].trim());
-        if (isValidRoot(parsed)) return parsed;
+        const normalized = normalizeParsedObject(parsed);
+        if (normalized) return normalized;
       } catch {}
     }
     
@@ -205,51 +254,78 @@ export async function generateLMStudioResponse(
   const result = tryParseJSON(rawContent);
 
   if (result) {
-    const responseText = result.text || (result.segments || []).map((s: any) => typeof s === 'string' ? s : s.text).join("");
-    const finalSegments = segmentText(responseText, result.segments || []);
+    const rawText = result.text || (result.segments || []).map((s: any) => typeof s === 'string' ? s : s.text).join("");
+    const responseText = unescapeText(rawText);
+    const rawSegments = (result.segments || []).map((s: any) => {
+      if (typeof s === 'string') {
+        return { text: unescapeText(s) };
+      } else {
+        return { 
+          ...s, 
+          text: unescapeText(s.text || ''),
+          fontVariant: s.fontVariant ? unescapeText(s.fontVariant) : undefined
+        };
+      }
+    });
+    const finalSegments = segmentText(responseText, rawSegments);
     return {
       text: responseText,
       segments: finalSegments,
-      keywords: result.keywords || [],
-      thinking: result.thinking || '',
-      motionStyle: result.motionStyle || 'default',
-      bgPrompt: result.bgPrompt || 'beautiful landscape, realistic, 8k',
-      weatherEffect: result.weatherEffect || 'none',
-      baseTheme: result.baseTheme || 'Minimalist',
-      bgAnimationType: result.bgAnimationType || 'none',
+      keywords: (result.keywords || []).map((kw: any) => ({
+        word: unescapeText(kw.word || ''),
+        semanticRole: unescapeText(kw.semanticRole || '')
+      })),
+      thinking: unescapeText(result.thinking || ''),
+      motionStyle: unescapeText(result.motionStyle || 'default'),
+      bgPrompt: unescapeText(result.bgPrompt || 'beautiful landscape, realistic, 8k'),
+      weatherEffect: unescapeText(result.weatherEffect || 'none'),
+      baseTheme: unescapeText(result.baseTheme || 'Minimalist'),
+      bgAnimationType: unescapeText(result.bgAnimationType || 'none'),
       particleDensity: result.particleDensity || 5,
-      weatherOverlay: result.weatherOverlay || 'none',
+      weatherOverlay: unescapeText(result.weatherOverlay || 'none'),
       contextualEffect: result.contextualEffect || { type: 'none', subject: 'none', imageUrl: 'none', animation: 'none', placement: 'none' },
-      followUpQuestion: result.followUpQuestion || null
+      followUpQuestion: result.followUpQuestion ? unescapeText(result.followUpQuestion) : null
     };
   }
 
   // Final fallback: Extract segments via regex instead of showing raw JSON text
   console.warn('[LM Studio] Could not parse JSON from response, attempting regex recovery');
   let recoveredSegments: any[] = [];
-  const textSegmentRegex = /"text"\s*:\s*"([^"]+)"/g;
-  let match;
-  while ((match = textSegmentRegex.exec(rawContent)) !== null) {
+  
+  const hasBraces = rawContent.includes('{') && rawContent.includes('}');
+  if (!hasBraces) {
+    const cleanProse = unescapeText(rawContent.trim());
     recoveredSegments.push({
-      text: match[1],
+      text: cleanProse,
       scale: "normal",
       alignment: "center",
       fontVariant: "Inter"
     });
-  }
+  } else {
+    const textSegmentRegex = /"text"\s*:\s*"([^"]+)"/g;
+    let match;
+    while ((match = textSegmentRegex.exec(rawContent)) !== null) {
+      recoveredSegments.push({
+        text: unescapeText(match[1]),
+        scale: "normal",
+        alignment: "center",
+        fontVariant: "Inter"
+      });
+    }
 
-  if (recoveredSegments.length === 0) {
-    const cleanProse = rawContent
-      .replace(/\{[\s\S]*\}/g, "") 
-      .replace(/"[^"]+"\s*:\s*"[^"]*"/g, "") 
-      .replace(/[{}["\]]+/g, "") 
-      .trim();
-    recoveredSegments.push({
-      text: cleanProse || "I received your message but encountered a formatting issue. Let's try again.",
-      scale: "normal",
-      alignment: "center",
-      fontVariant: "Inter"
-    });
+    if (recoveredSegments.length === 0) {
+      const cleanProse = rawContent
+        .replace(/\{[\s\S]*\}/g, "") 
+        .replace(/"[^"]+"\s*:\s*"[^"]*"/g, "") 
+        .replace(/[{}["\]]+/g, "") 
+        .trim();
+      recoveredSegments.push({
+        text: unescapeText(cleanProse) || "I received your message but encountered a formatting issue. Let's try again.",
+        scale: "normal",
+        alignment: "center",
+        fontVariant: "Inter"
+      });
+    }
   }
 
   const responseText = recoveredSegments.map(s => s.text).join("");
@@ -257,7 +333,7 @@ export async function generateLMStudioResponse(
 
   const thinkingMatch = rawContent.match(/"thinking"\s*:\s*"([^"]+)"/);
   const recoveredThinking = thinkingMatch 
-    ? thinkingMatch[1] 
+    ? unescapeText(thinkingMatch[1]) 
     : "The local model returned a response that had formatting issues, but the system successfully recovered the text segments.";
 
   return {

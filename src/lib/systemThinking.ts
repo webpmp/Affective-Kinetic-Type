@@ -21,7 +21,6 @@ interface SystemThinkingParams {
   emotionInfluence: number;
   animationIntensity: number;
   maxAnimatedKeywords: number;
-  animationStability: boolean;
   wcagLevel: 'A' | 'AA' | 'AAA';
   wcagStrictMode: boolean;
   bgAnimationType: string;

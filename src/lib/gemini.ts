@@ -42,13 +42,17 @@ export interface ChatMessage {
   engagement?: number;
   fontSize?: number;
   fontFamily?: string;
-  fontColor?: string;
   activeDecorations?: string[];
   activeAnimations?: string[];
   emotionInfluence?: number;
   animationIntensity?: number;
-  maxAnimatedKeywords?: number;
-  animationStability?: boolean;
+  animatedWordLimit?: number;
+  fontWeightDefault?: 'light' | 'regular' | 'medium' | 'semibold' | 'bold';
+  trackingDefault?: number;
+  textCaseDefault?: 'auto' | 'sentence' | 'title' | 'uppercase';
+  alignmentDefault?: 'auto' | 'left' | 'center' | 'right';
+  textContrastDefault?: 'auto' | 'light' | 'dark';
+  contrastEnhancement?: number;
   wcagLevel?: 'A' | 'AA' | 'AAA';
   wcagStrictMode?: boolean;
   age?: number;
@@ -70,7 +74,8 @@ export async function generateResponse(
   gender: string,
   enabledFonts: string[],
   model: string = 'gemini-2.0-flash-lite',
-  wcagLevel: 'A' | 'AA' | 'AAA' = 'A'
+  wcagLevel: 'A' | 'AA' | 'AAA' = 'A',
+  animatedWordLimit: number = 8
 ): Promise<{ 
   text: string, 
   segments: TextSegment[], 
@@ -126,6 +131,7 @@ For the user's current emotional state (sentiment ${sentiment.toFixed(2)}, engag
 Your written response and semantic composition MUST match this communication goal and tone.
 
 SEMANTIC ROLE STYLING:
+${animatedWordLimit === 0 ? "Do not highlight any words for animation." : `Highlight no more than ${animatedWordLimit} words for animation.`}
 Do NOT randomly select words for emphasis. Instead, identify cohesive semantic spans or phrases (not isolated filler words) and classify them under specific semantic roles in the "keywords" list.
 Allowed semantic roles are:
 - 'empathy': empathy statements
@@ -206,8 +212,8 @@ Generate cohesive atmospheric scenes by inferring the PRIMARY CONVERSATIONAL SCE
 
 You must return a JSON object containing twelve fields:
 1. "thinking": A brief explanation of how the user's latent emotional state influenced your response structure, affective rendering, and visual pacing.
-2. "text": The complete, single string of the response. This is the source of truth, fully formed and grammatically correct.
-3. "segments": A natural, conversational response to the user, split into expressive chunks (such as complete clauses or full sentences) to create a visual rhythm.
+2. "text": The complete, single string of the response. This is the source of truth, fully formed, and grammatically correct. It MUST contain the complete user-facing response with nothing omitted (e.g., all steps, ingredients, explanations, and details must be present here).
+3. "segments": A list of objects representing visual subdivisions of the "text" field for rendering purposes. The combined text of all segments must equal the "text" field. They must never omit information or introduce new information that is not already present in the "text" field.
 4. "keywords": An array of objects representing semantic spans or phrases to style.
 5. "motionStyle": A single string representing the creative motion to apply to the keywords.
 6. "bgPrompt": A highly descriptive image generation prompt.
@@ -216,16 +222,21 @@ You must return a JSON object containing twelve fields:
 9. "particleDensity": A number from 1 to 10.
 10. "weatherOverlay": Environmental Sub-States or specific weather overlay.
 11. "weatherEffect": (Legacy mapping) A string representing a legacy background scene.
-12. "followUpQuestion": A tightly scoped follow-up question if one of the trigger conditions is met; otherwise return an empty string or null.`;
+12. "followUpQuestion": A tightly scoped follow-up question. This must only be generated after the user’s request has been completely answered. It must never be used to defer requested content or continue an incomplete response.`;
 
-  console.log(`Calling Gemini API with model '${model}'...`);
-  console.log("History sent to Gemini:", history);
-  
+  // --- DIAGNOSTICS: PHASE 1 REQUEST LOGGING (Gemini) ---
+  console.group('[Gemini Diagnostics] Request Details');
+  console.log('Model ID Configured:', model);
+  console.log('Complete System Prompt String:', systemInstruction);
+  console.log('History Array Sent:', JSON.stringify(history, null, 2));
+  console.groupEnd();
+
   let attempts = 3;
   let lastError = null;
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     console.log(`Calling Gemini API (Attempt ${attempt}/${attempts}) with model '${model}'...`);
+    const requestStartTime = performance.now();
     try {
       const response = await ai.models.generateContent({
         model: model,
@@ -242,21 +253,21 @@ You must return a JSON object containing twelve fields:
               },
               text: {
                 type: Type.STRING,
-                description: "The complete, single string of the response. This is the source of truth, fully formed and grammatically correct."
+                description: "The complete, single string of the response. This is the source of truth, fully formed and grammatically correct. It MUST contain the complete user-facing response with nothing omitted (e.g. all steps, ingredients, explanations, and details must be present here)."
               },
               segments: {
                 type: Type.ARRAY,
                 items: { 
                   type: Type.OBJECT,
                   properties: {
-                    text: { type: Type.STRING, description: "The textual content" },
+                    text: { type: Type.STRING, description: "The textual content of this segment" },
                     scale: { type: Type.STRING, description: "Typographic scale: small, normal, large, oversized, massive" },
                     alignment: { type: Type.STRING, description: "Spatial placement: left, center, right, justify" },
                     fontVariant: { type: Type.STRING, description: "The exact font value string from the available fonts list" }
                   },
                   required: ["text"]
                 },
-                description: "The response to the user, split into expressive textual chunks with typographic styling parameters."
+                description: "A list of objects representing visual subdivisions of the text field for rendering purposes. The combined text of all segments must equal the text field. They must never omit information or introduce new information that is not already present in the text field."
               },
               keywords: {
                 type: Type.ARRAY,
@@ -314,7 +325,7 @@ You must return a JSON object containing twelve fields:
               },
               followUpQuestion: {
                 type: Type.STRING,
-                description: "A concrete, optionally scoped next step question if triggers match, else empty string or null."
+                description: "A tightly scoped follow-up question. This must only be generated after the user’s request has been completely answered. It must never be used to defer requested content or continue an incomplete response."
               }
             },
             required: ["thinking", "text", "segments", "keywords", "motionStyle", "bgPrompt", "weatherEffect", "baseTheme", "bgAnimationType", "particleDensity", "weatherOverlay", "contextualEffect", "followUpQuestion"]
@@ -322,10 +333,24 @@ You must return a JSON object containing twelve fields:
         }
       });
 
+      const responseEndTime = performance.now();
       const jsonStr = response.text?.trim() || "{}";
       const result = JSON.parse(jsonStr);
 
       const responseText = result.text || (result.segments || []).map((s: any) => typeof s === 'string' ? s : s.text).join("");
+
+      // --- DIAGNOSTICS: PHASE 1 RESPONSE LOGGING (Gemini) ---
+      console.group('[Gemini Diagnostics] Response Details');
+      console.log('Raw Response JSON Payload String:', jsonStr);
+      console.log('Parsed Response Object:', result);
+      console.log('Request Duration (ms):', responseEndTime - requestStartTime);
+      console.log('Response Metadata:', {
+        candidates: response.candidates,
+        usageMetadata: response.usageMetadata
+      });
+      console.log('Parsed Content Length (Characters):', jsonStr.length);
+      console.log('Final Assistant Content Passed to Pipeline:', responseText);
+      console.groupEnd();
 
       // Stage 2: Validate response text
       if (!validateResponseText(responseText)) {

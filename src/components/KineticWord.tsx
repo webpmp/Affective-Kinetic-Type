@@ -19,7 +19,9 @@ interface KineticWordProps {
   activeAnimations?: string[];
   emotionInfluence?: number;
   animationIntensity?: number;
-  animationStability?: boolean;
+  fontWeightDefault?: 'light' | 'regular' | 'medium' | 'semibold' | 'bold';
+  trackingDefault?: number;
+  textCaseDefault?: 'auto' | 'sentence' | 'title' | 'uppercase';
   wcagLevel?: 'A' | 'AA' | 'AAA';
   wcagStrictMode?: boolean;
   forceColor?: string;
@@ -27,6 +29,9 @@ interface KineticWordProps {
   decorationAllowed?: boolean;
   animationAllowed?: boolean;
   enabledFonts?: string[];
+  segmentAnimation?: string;
+  segmentDecoration?: string;
+  segmentIntensity?: number;
 }
 
 export function KineticWord({ 
@@ -41,15 +46,21 @@ export function KineticWord({
   activeAnimations = [],
   emotionInfluence = 1.0,
   animationIntensity = 1.0,
-  animationStability = true,
+  fontWeightDefault = 'regular',
+  trackingDefault = 0,
+  textCaseDefault = 'auto',
   wcagLevel = 'AA',
   wcagStrictMode = true,
   forceColor,
   semanticRole,
   decorationAllowed = false,
   animationAllowed = false,
-  enabledFonts = []
+  enabledFonts = [],
+  segmentAnimation,
+  segmentDecoration,
+  segmentIntensity
 }: KineticWordProps) {
+  const activeIntensity = segmentIntensity !== undefined ? segmentIntensity : animationIntensity;
   const cleanWord = useMemo(() => word.trim().toLowerCase().replace(/[.,!?()[\]{}"']/g, ""), [word]);
   const isFillerWord = useMemo(() => {
     const fillerWords = new Set([
@@ -78,7 +89,14 @@ export function KineticWord({
 
   // Determine emotional styling
   let emotionColor = baseColor;
-  let fontWeight = 500;
+  let defaultWeightMap: Record<string, number> = {
+    light: 300,
+    regular: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700
+  };
+  let fontWeight = defaultWeightMap[fontWeightDefault] || 400;
   let scale = 1;
   let kineticFont = 'inherit';
   
@@ -86,24 +104,30 @@ export function KineticWord({
   let initialX = 0;
   let initialRotate = 0;
 
+  const effectiveEmotionIntensity = intensity * emotionInfluence;
+
   // Spatial offsets based on user emotional state coordinates to preserve the kinetic feel
   if (isPositive && isHighEngagement) {
-    scale = 1.05 + (intensity * 0.05 * animationIntensity);
-    initialY = 5 * intensity * animationIntensity;
+    scale = 1.0 + (0.05 * effectiveEmotionIntensity * activeIntensity);
+    initialY = 5 * effectiveEmotionIntensity * activeIntensity;
   } else if (!isPositive && isHighEngagement) {
-    scale = 1.05 + (intensity * 0.05 * animationIntensity);
-    initialX = -5 * intensity * animationIntensity;
-    initialRotate = -3 * intensity * animationIntensity;
+    scale = 1.0 + (0.05 * effectiveEmotionIntensity * activeIntensity);
+    initialX = -5 * effectiveEmotionIntensity * activeIntensity;
+    initialRotate = -3 * effectiveEmotionIntensity * activeIntensity;
   } else if (!isPositive && !isHighEngagement) {
-    scale = 0.98 - (intensity * 0.03 * animationIntensity);
-    initialY = -4 * intensity * animationIntensity;
+    scale = 1.0 - (0.02 * effectiveEmotionIntensity * activeIntensity);
+    initialY = -4 * effectiveEmotionIntensity * activeIntensity;
   } else if (isPositive && !isHighEngagement) {
-    scale = 1.02 + (intensity * 0.03 * animationIntensity);
-    initialY = 4 * intensity * animationIntensity;
+    scale = 1.0 + (0.02 * effectiveEmotionIntensity * activeIntensity);
+    initialY = 4 * effectiveEmotionIntensity * activeIntensity;
   }
 
   // Resolve Font Category based on Semantic Role and Communication Goal Details
-  if (semanticRole) {
+  // Deterministic blend: only apply emotional font selection if hash is below emotionInfluence threshold.
+  const wordHash = cleanWord.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 10 / 10;
+  const typographyAllowed = emotionInfluence > 0.0 && (emotionInfluence >= 2.0 || wordHash < emotionInfluence);
+
+  if (semanticRole && typographyAllowed) {
     const role = semanticRole.toLowerCase();
     const isAAA = wcagLevel === 'AAA';
     const isAA = wcagLevel === 'AA';
@@ -127,8 +151,11 @@ export function KineticWord({
       }
     } else if (['empathy', 'delight', 'reassurance', 'playful'].includes(role) && !isAAA && !isAA) {
       // Handwritten / Human (allowed for encouragement or delight under Joy, Sadness, Depression, Excitement)
+      // Do not use handwritten if the context is technical/informational
+      const isTechnical = ['system-label', 'command', 'correction', 'revision'].includes(role) || 
+                          (cleanWord && (cleanWord.includes('code') || cleanWord.includes('api') || cleanWord.includes('data') || cleanWord.includes('debug')));
       const isGoalAllowed = ['Add warmth and encouragement', 'Be calm and gently motivating', 'Celebrate lightly', 'Match the user’s energy without becoming chaotic'].includes(goalDetails.goal);
-      if (isGoalAllowed) {
+      if (isGoalAllowed && !isTechnical) {
         const handValue = findFontByCategory('Handwritten / Human') || '"Caveat", cursive';
         kineticFont = handValue;
       }
@@ -165,10 +192,15 @@ export function KineticWord({
 
 
   // Global constraints for layout integrity
-  scale = Math.min(1.1, Math.max(0.9, scale));
-  initialY = Math.min(4, Math.max(-4, initialY));
-  initialX = Math.min(4, Math.max(-4, initialX));
-  initialRotate = Math.min(2, Math.max(-2, initialRotate));
+  const maxOffset = 15 * Math.max(1.0, activeIntensity);
+  const maxRotate = 10 * Math.max(1.0, activeIntensity);
+  const maxScale = 1.0 + 0.15 * Math.max(1.0, activeIntensity);
+  const minScale = 1.0 - 0.15 * Math.max(1.0, activeIntensity);
+
+  scale = Math.min(maxScale, Math.max(minScale, scale));
+  initialY = Math.min(maxOffset, Math.max(-maxOffset, initialY));
+  initialX = Math.min(maxOffset, Math.max(-maxOffset, initialX));
+  initialRotate = Math.min(maxRotate, Math.max(-maxRotate, initialRotate));
 
   // Mapped style from semantic role
   let selectedCssDecoration: React.CSSProperties = {};
@@ -181,6 +213,13 @@ export function KineticWord({
       mappedDecoId = roleMapping.decorationId;
       mappedAnimId = roleMapping.animationId;
     }
+  }
+
+  if (segmentDecoration && decorationAllowed) {
+    mappedDecoId = segmentDecoration;
+  }
+  if (segmentAnimation && animationAllowed) {
+    mappedAnimId = segmentAnimation;
   }
 
   // 1. Resolve Decoration
@@ -202,7 +241,9 @@ export function KineticWord({
   // 2. Resolve Animation
   let resolvedAnimation = 'default';
   
-  if (animationAllowed && mappedAnimId && activeAnimations && activeAnimations.includes(mappedAnimId)) {
+  const animationPresetAllowed = emotionInfluence > 0.0 && (emotionInfluence >= 2.0 || wordHash < emotionInfluence);
+  
+  if (animationAllowed && mappedAnimId && activeAnimations && activeAnimations.includes(mappedAnimId) && animationPresetAllowed) {
     let isAllowed = !goalDetails.avoidAnimations.includes(mappedAnimId);
     
     // Step 5: Restrict high-impact animations heavily
@@ -277,11 +318,29 @@ export function KineticWord({
     finalColor = finalCssDecoration.color as string;
     delete finalCssDecoration.color;
   }
+
+  const blendColors = (c1: string, c2: string, weight: number): string => {
+    try {
+      const w = Math.max(0, Math.min(1, weight));
+      const rgb1 = hexToRgb(c1);
+      const rgb2 = hexToRgb(c2);
+      const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * w);
+      const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * w);
+      const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * w);
+      return "#" + [r, g, b].map(x => x.toString(16).padStart(2, "0")).join("");
+    } catch (e) {
+      return c2;
+    }
+  };
+
+  if (emotionInfluence < 1.0) {
+    finalColor = blendColors(baseColor, finalColor, emotionInfluence);
+  }
   
   let finalFont = kineticFont;
   let finalScale = scale;
   let finalWeight = fontWeight;
-  let finalAnimationIntensity = animationIntensity;
+  let finalAnimationIntensity = activeIntensity;
   let finalSelectedAnimation = selectedAnimation;
   let wasOverridden = false;
   let overrideWarning = false;
@@ -292,7 +351,7 @@ export function KineticWord({
     let newFont = kineticFont;
     let newScale = scale;
     let newWeight = fontWeight;
-    let newAnimIntensity = animationIntensity;
+    let newAnimIntensity = activeIntensity;
     let newAnim = selectedAnimation;
     let newDeco = { ...finalCssDecoration };
 
@@ -328,12 +387,12 @@ export function KineticWord({
       if (scale < 0.95) { newScale = 0.95; overridden = true; }
       const distractingAnimations = ['glitch', 'shake', 'vibrate', 'flash', 'jerk', 'spin', 'flip', 'bounce', 'jump', 'pop', 'slam', 'wobble'];
       if (distractingAnimations.includes(selectedAnimation)) { newAnim = 'breathe'; overridden = true; }
-      if (animationIntensity > 0.2) { newAnimIntensity = 0.2; overridden = true; }
+      if (activeIntensity > 0.2) { newAnimIntensity = 0.2; overridden = true; }
       if (newDeco.textShadow || newDeco.textDecorationStyle === 'wavy' || newDeco.textDecorationStyle === 'dashed' || newDeco.textDecorationStyle === 'dotted') { newDeco = {}; overridden = true; }
     } else if (level === 'AA') {
       const distractingAnimations = ['glitch', 'flash', 'vibrate'];
       if (distractingAnimations.includes(selectedAnimation)) { newAnim = 'pulse'; overridden = true; }
-      if (animationIntensity > 0.6) { newAnimIntensity = 0.6; overridden = true; }
+      if (activeIntensity > 0.6) { newAnimIntensity = 0.6; overridden = true; }
       if (newDeco.textShadow && typeof newDeco.textShadow === 'string' && newDeco.textShadow.includes('rgba')) { newDeco = {}; overridden = true; }
     }
 
@@ -647,60 +706,76 @@ export function KineticWord({
       return val.map(v => Math.min(max, Math.max(min, v)));
     }
     return Math.min(max, Math.max(min, val));
-  };
+  };  const intensityMultiplier = Math.max(1.0, activeIntensity);
 
   if (finalSelectedAnimation === 'stretch') {
-    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.4, 2.0);
-    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.4, 2.0);
+    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.4 / intensityMultiplier, 2.0 * intensityMultiplier);
+    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.4 / intensityMultiplier, 2.0 * intensityMultiplier);
   } else {
-    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 0.9, 1.1);
-    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 0.9, 1.1);
+    if (animateProps.scaleX) animateProps.scaleX = clampArrayOrValue(animateProps.scaleX, 1 - 0.1 * intensityMultiplier, 1 + 0.1 * intensityMultiplier);
+    if (animateProps.scaleY) animateProps.scaleY = clampArrayOrValue(animateProps.scaleY, 1 - 0.1 * intensityMultiplier, 1 + 0.1 * intensityMultiplier);
   }
   if (finalSelectedAnimation === 'bounce') {
-    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.7, 1.4);
-    if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -30, 10);
-    if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4, 4);
-    if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2, 2);
+    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 1 - 0.3 * intensityMultiplier, 1 + 0.4 * intensityMultiplier);
+    if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -30 * intensityMultiplier, 10 * intensityMultiplier);
+    if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4 * intensityMultiplier, 4 * intensityMultiplier);
+    if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2 * intensityMultiplier, 2 * intensityMultiplier);
   } else {
-    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.9, 1.1);
+    if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 1 - 0.1 * intensityMultiplier, 1 + 0.1 * intensityMultiplier);
     if (finalSelectedAnimation === 'glitch') {
-      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -10, 10);
-      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -10, 10);
-      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -15, 15);
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -10 * intensityMultiplier, 10 * intensityMultiplier);
+      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -10 * intensityMultiplier, 10 * intensityMultiplier);
+      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -15 * intensityMultiplier, 15 * intensityMultiplier);
     } else if (finalSelectedAnimation === 'shatter') {
-      if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 0.5, 1.5);
-      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -20, 20);
-      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -20, 20);
-      if (animateProps.rotate) animateProps.rotate = clampArrayOrValue(animateProps.rotate, -30, 30);
+      if (animateProps.scale) animateProps.scale = clampArrayOrValue(animateProps.scale, 1 - 0.5 * intensityMultiplier, 1 + 0.5 * intensityMultiplier);
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -20 * intensityMultiplier, 20 * intensityMultiplier);
+      if (animateProps.y) animateProps.y = clampArrayOrValue(animateProps.y, -20 * intensityMultiplier, 20 * intensityMultiplier);
+      if (animateProps.rotate) animateProps.rotate = clampArrayOrValue(animateProps.rotate, -30 * intensityMultiplier, 30 * intensityMultiplier);
     } else {
-      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4, 4);
+      if (animateProps.x) animateProps.x = clampArrayOrValue(animateProps.x, -4 * intensityMultiplier, 4 * intensityMultiplier);
       if (animateProps.y) {
         if (finalSelectedAnimation === 'wave') {
-          animateProps.y = clampArrayOrValue(animateProps.y, -25, 25);
+          animateProps.y = clampArrayOrValue(animateProps.y, -25 * intensityMultiplier, 25 * intensityMultiplier);
         } else {
-          animateProps.y = clampArrayOrValue(animateProps.y, -4, 4);
+          animateProps.y = clampArrayOrValue(animateProps.y, -4 * intensityMultiplier, 4 * intensityMultiplier);
         }
       }
-      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2, 2);
+      if (animateProps.skewX) animateProps.skewX = clampArrayOrValue(animateProps.skewX, -2 * intensityMultiplier, 2 * intensityMultiplier);
     }
   }
   if (animateProps.rotate) {
     if (finalSelectedAnimation === 'wave') {
-      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -5, 5);
+      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -5 * intensityMultiplier, 5 * intensityMultiplier);
     } else {
-      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -2, 2);
+      animateProps.rotate = clampArrayOrValue(animateProps.rotate, -2 * intensityMultiplier, 2 * intensityMultiplier);
     }
   }
   if (finalSelectedAnimation === 'rotate') {
-    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -45, 45);
-    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -45, 45);
+    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -45 * intensityMultiplier, 45 * intensityMultiplier);
+    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -45 * intensityMultiplier, 45 * intensityMultiplier);
   } else {
-    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -5, 5);
-    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -5, 5);
+    if (animateProps.rotateX) animateProps.rotateX = clampArrayOrValue(animateProps.rotateX, -5 * intensityMultiplier, 5 * intensityMultiplier);
+    if (animateProps.rotateY) animateProps.rotateY = clampArrayOrValue(animateProps.rotateY, -5 * intensityMultiplier, 5 * intensityMultiplier);
   }
   if (animateProps.letterSpacing) {
     delete animateProps.letterSpacing;
     if (transitionProps.letterSpacing) delete transitionProps.letterSpacing;
+  }
+
+  // Post-process transitions to dynamically override easing based on emotionInfluence
+  if (transitionProps) {
+    Object.keys(transitionProps).forEach(key => {
+      if (transitionProps[key] && typeof transitionProps[key] === 'object') {
+        const originalEase = transitionProps[key].ease || "easeInOut";
+        if (emotionInfluence > 1.3) {
+          transitionProps[key].ease = [0.175, 0.885, 0.32, 1.275];
+        } else if (emotionInfluence < 0.7) {
+          transitionProps[key].ease = "linear";
+        } else {
+          transitionProps[key].ease = originalEase;
+        }
+      }
+    });
   }
 
   // Enforce WCAG on dynamic states
@@ -724,7 +799,10 @@ export function KineticWord({
   if (finalSelectedAnimation === 'glitch' || finalSelectedAnimation === 'wave' || finalSelectedAnimation === 'stretch' || finalSelectedAnimation === 'rotate' || finalSelectedAnimation === 'bounce' || finalSelectedAnimation === 'shatter' || finalSelectedAnimation === 'neon') {
     const chars = word.split('');
     return (
-      <span className={`kinetic-text kt-${finalSelectedAnimation} relative inline-flex mx-[0.1em] align-baseline`}>
+      <span 
+        className={`kinetic-text kt-${finalSelectedAnimation} relative inline-flex mx-[0.1em] align-baseline`}
+        style={{ letterSpacing: `${trackingDefault / 100}em` }}
+      >
         {chars.map((char, charIdx) => {
           // Generate unique directions for Shatter animation
           const sx = (Math.sin(charIdx) * 12).toFixed(1);
@@ -768,7 +846,8 @@ export function KineticWord({
           scaleX: 1,
           skewX: 0,
           filter: "blur(0px)",
-          opacity: 0
+          opacity: 0,
+          letterSpacing: `${trackingDefault / 100}em`
         }}
         animate={animateProps}
         transition={transitionProps}
@@ -779,6 +858,7 @@ export function KineticWord({
           transformOrigin: 'center center',
           lineHeight: 'inherit',
           boxSizing: 'border-box',
+          letterSpacing: `${trackingDefault / 100}em`,
           ...finalCssDecoration
         }}
       >

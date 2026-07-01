@@ -10,7 +10,7 @@ import { AIProvider, LMStudioConfig, loadLMStudioConfig, generateLMStudioRespons
 import { LMStudioModal } from './components/LMStudioModal';
 import { generateSystemThinking } from './lib/systemThinking';
 import { getCommunicationGoalDetails } from './lib/communicationModel';
-
+import { selectFont } from './lib/typographyEngine';
 export default function App() {
   const [sentiment, setSentiment] = useState(0);
   const [engagement, setEngagement] = useState(0);
@@ -18,7 +18,12 @@ export default function App() {
     FONTS.map(f => f.name)
   );
   const [fontSize, setFontSize] = useState(24);
-  const [fontColor, setFontColor] = useState('#ffffff');
+  const [fontWeightDefault, setFontWeightDefault] = useState<'light' | 'regular' | 'medium' | 'semibold' | 'bold'>('regular');
+  const [trackingDefault, setTrackingDefault] = useState(0);
+  const [textCaseDefault, setTextCaseDefault] = useState<'auto' | 'sentence' | 'title' | 'uppercase'>('auto');
+  const [alignmentDefault, setAlignmentDefault] = useState<'auto' | 'left' | 'center' | 'right'>('auto');
+  const [textContrastDefault, setTextContrastDefault] = useState<'auto' | 'light' | 'dark'>('auto');
+  const [contrastEnhancement, setContrastEnhancement] = useState(0);
   
   // New State
   const [age, setAge] = useState(30);
@@ -30,14 +35,13 @@ export default function App() {
   const [activeAnimations, setActiveAnimations] = useState<string[]>(ANIMATION_POOL.map(a => a.id));
   const [emotionInfluence, setEmotionInfluence] = useState(1.0);
   const [animationIntensity, setAnimationIntensity] = useState(1.0);
-  const [maxAnimatedKeywords, setMaxAnimatedKeywords] = useState(3);
-  const [animationStability, setAnimationStability] = useState(true);
+  const [maxAnimatedKeywords, setMaxAnimatedKeywords] = useState(8);
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('A');
   const [wcagStrictMode, setWcagStrictMode] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'side' | 'right-side' | 'stacked' | 'below' | 'hidden'>('below');
   const [viewMode, setViewMode] = useState<'threaded' | 'focus'>('threaded');
-  const [conversationMode, setConversationMode] = useState(true);
-  const [messageInterval, setMessageInterval] = useState(13);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [recentFonts, setRecentFonts] = useState<string[]>([]);
   const [bgPrompt, setBgPrompt] = useState<string | null>(null);
   const [bgType, setBgType] = useState<'image' | 'gradient'>('gradient');
   const [gradientColor1, setGradientColor1] = useState('#EC4646');
@@ -61,7 +65,12 @@ export default function App() {
       sentiment: 0,
       engagement: 0,
       fontSize: 24,
-      fontColor: '#ffffff',
+      fontWeightDefault: 'regular',
+      trackingDefault: 0,
+      textCaseDefault: 'auto',
+      alignmentDefault: 'auto',
+      textContrastDefault: 'auto',
+      contrastEnhancement: 35,
       age: 30,
       gender: 'Neutral'
     }
@@ -83,12 +92,25 @@ export default function App() {
         newMessages[lastAiIndex] = {
           ...newMessages[lastAiIndex],
           fontSize,
-          fontColor
+          fontWeightDefault,
+          trackingDefault,
+          textCaseDefault,
+          alignmentDefault,
+          textContrastDefault,
+          contrastEnhancement
         };
       }
       return newMessages;
     });
-  }, [fontSize, fontColor]);
+  }, [
+    fontSize,
+    fontWeightDefault,
+    trackingDefault,
+    textCaseDefault,
+    alignmentDefault,
+    textContrastDefault,
+    contrastEnhancement
+  ]);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -129,7 +151,13 @@ export default function App() {
       setBgPrompt(`beautiful ${weatherContext || 'nature'} landscape, realistic, 8k`);
     }
   }, [bgType, weatherContext, bgPrompt]);
-
+  useEffect(() => {
+    if (bgType === 'image') {
+      setContrastEnhancement(10);
+    } else {
+      setContrastEnhancement(0);
+    }
+  }, [bgType]);
   const handleEmotionChange = (v: number, a: number) => {
     setSentiment(v);
     setEngagement(a);
@@ -166,7 +194,12 @@ export default function App() {
         sentiment: 0,
         engagement: 0,
         fontSize: 24,
-        fontColor: '#ffffff',
+        fontWeightDefault: 'regular',
+        trackingDefault: 0,
+        textCaseDefault: 'auto',
+        alignmentDefault: 'auto',
+        textContrastDefault: 'auto',
+        contrastEnhancement: 35,
         age: 30,
         gender: 'Neutral'
       }
@@ -180,7 +213,12 @@ export default function App() {
       sentiment,
       engagement,
       fontSize,
-      fontColor
+      fontWeightDefault,
+      trackingDefault,
+      textCaseDefault,
+      alignmentDefault,
+      textContrastDefault,
+      contrastEnhancement
     };
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
@@ -396,6 +434,7 @@ For the user's current emotional state, you must align your response with the fo
 Your written response and semantic composition MUST match this communication goal and tone.
 
 SEMANTIC ROLE STYLING:
+${maxAnimatedKeywords === 0 ? "Do not highlight any words for animation." : `Highlight no more than ${maxAnimatedKeywords} words for animation.`}
 Do NOT randomly select words for emphasis. Instead, identify cohesive semantic spans or phrases (not isolated filler words) and classify them under specific semantic roles in the "keywords" list.
 Allowed semantic roles are:
 - 'empathy': empathy statements
@@ -420,6 +459,11 @@ Allowed semantic roles are:
 - 'playful': fun/witty comments or jokes
 
 Each emphasized phrase/keyword MUST have an associated "semanticRole" in the JSON.
+
+STRICT JSON SCHEMA CONTRACT:
+- "text": The complete, single string of the response. This is the source of truth, fully formed and grammatically correct. It MUST contain the complete user-facing response with nothing omitted (e.g. all steps, ingredients, explanations, and details must be present here).
+- "segments": A list of objects representing visual subdivisions of the "text" field for rendering purposes. The combined text of all segments must equal the "text" field. They must never omit information or introduce new information that is not already present in the "text" field.
+- "followUpQuestion": A tightly scoped follow-up question. This must only be generated after the user’s request has been completely answered. It must never be used to defer requested content or continue an incomplete response.
 
 CRITICAL: The user may select and resubmit a message from their conversation history. You MUST ignore the sentiment, tone, and kinetic formatting of any duplicate or similar historical messages in the conversation log, and strictly generate a fresh response matching the CURRENT Sentiment and Engagement values specified above.`;
         const chatHistory = [...messages, userMessage].map(m => ({ role: m.role, content: m.content }));
@@ -447,7 +491,8 @@ CRITICAL: The user may select and resubmit a message from their conversation his
           gender,
           enabledFonts,
           aiProvider,
-          wcagLevel
+          wcagLevel,
+          maxAnimatedKeywords
         );
         aiText = response.text;
         segments = response.segments;
@@ -476,37 +521,68 @@ CRITICAL: The user may select and resubmit a message from their conversation his
         gender,
         enabledFonts,
         fontSize,
-        fontColor,
+        fontColor: '#ffffff',
         motionStyle,
         activeAnimations,
         activeDecorations,
         emotionInfluence,
         animationIntensity,
         maxAnimatedKeywords,
-        animationStability,
         wcagLevel,
         wcagStrictMode,
         bgAnimationType,
         baseTheme,
       });
 
+      let recentFontsCopy = [...recentFonts];
+      let expressiveSegmentsCount = 0;
+      const updatedSegments = (segments || []).map(seg => {
+        const selected = selectFont({
+          text: seg.text,
+          sentiment,
+          engagement,
+          emotionInfluence,
+          animationIntensity,
+          enabledFonts,
+          recentFonts: recentFontsCopy,
+          expressiveSegmentsCount
+        });
+
+        const fontDef = FONTS.find(f => f.name === selected);
+        if (fontDef && fontDef.category === 'Experimental / Expressive') {
+          expressiveSegmentsCount++;
+        }
+
+        recentFontsCopy = [selected, ...recentFontsCopy.filter(f => f !== selected)].slice(0, 5);
+        return {
+          ...seg,
+          fontVariant: selected
+        };
+      });
+
+      setRecentFonts(recentFontsCopy);
+
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: aiText,
-        segments: segments,
+        segments: updatedSegments,
         emphasizedWords: keywords,
         thinking: systemThinkingNarrative,
         motionStyle: motionStyle,
         sentiment,
         engagement,
         fontSize,
-        fontColor,
+        fontWeightDefault,
+        trackingDefault,
+        textCaseDefault,
+        alignmentDefault,
+        textContrastDefault,
+        contrastEnhancement,
         activeDecorations,
         activeAnimations,
         emotionInfluence,
         animationIntensity,
-        maxAnimatedKeywords,
-        animationStability,
+        animatedWordLimit: maxAnimatedKeywords,
         wcagLevel,
         wcagStrictMode,
         age,
@@ -570,13 +646,17 @@ CRITICAL: The user may select and resubmit a message from their conversation his
         sentiment: -0.3,
         engagement: -0.2,
         fontSize,
-        fontColor: isRateLimit ? "#f43f5e" : isLMStudioError ? "#7c3aed" : fontColor,
+        fontWeightDefault,
+        trackingDefault,
+        textCaseDefault,
+        alignmentDefault,
+        textContrastDefault,
+        contrastEnhancement,
         activeDecorations: [],
         activeAnimations: [],
         emotionInfluence,
         animationIntensity,
-        maxAnimatedKeywords: 1,
-        animationStability: true,
+        animatedWordLimit: 1,
         wcagLevel,
         wcagStrictMode,
         age,
@@ -613,8 +693,18 @@ CRITICAL: The user may select and resubmit a message from their conversation his
       onEnabledFontsChange={setEnabledFonts}
       fontSize={fontSize}
       onFontSizeChange={setFontSize}
-      fontColor={fontColor}
-      onFontColorChange={setFontColor}
+      fontWeightDefault={fontWeightDefault}
+      onFontWeightDefaultChange={setFontWeightDefault}
+      trackingDefault={trackingDefault}
+      onTrackingDefaultChange={setTrackingDefault}
+      textCaseDefault={textCaseDefault}
+      onTextCaseDefaultChange={setTextCaseDefault}
+      alignmentDefault={alignmentDefault}
+      onAlignmentDefaultChange={setAlignmentDefault}
+      textContrastDefault={textContrastDefault}
+      onTextContrastDefaultChange={setTextContrastDefault}
+      contrastEnhancement={contrastEnhancement}
+      onContrastEnhancementChange={setContrastEnhancement}
       age={age}
       onAgeChange={setAge}
       gender={gender}
@@ -629,8 +719,6 @@ CRITICAL: The user may select and resubmit a message from their conversation his
       onAnimationIntensityChange={setAnimationIntensity}
       maxAnimatedKeywords={maxAnimatedKeywords}
       onMaxAnimatedKeywordsChange={setMaxAnimatedKeywords}
-      animationStability={animationStability}
-      onAnimationStabilityChange={setAnimationStability}
       wcagLevel={wcagLevel}
       onWcagLevelChange={setWcagLevel}
       wcagStrictMode={wcagStrictMode}
@@ -643,10 +731,8 @@ CRITICAL: The user may select and resubmit a message from their conversation his
       onGradientColor2Change={setGradientColor2}
       gradientDirection={gradientDirection}
       onGradientDirectionChange={setGradientDirection}
-      conversationMode={conversationMode}
-      onConversationModeChange={setConversationMode}
-      messageInterval={messageInterval}
-      onMessageIntervalChange={setMessageInterval}
+      playbackSpeed={playbackSpeed}
+      onPlaybackSpeedChange={setPlaybackSpeed}
       aiProvider={aiProvider}
       onAIProviderChange={handleAIProviderChange}
       onOpenLMStudioSettings={() => setShowLMStudioModal(true)}
@@ -710,8 +796,7 @@ CRITICAL: The user may select and resubmit a message from their conversation his
             gradientColor2={gradientColor2}
             gradientDirection={gradientDirection}
             viewMode={viewMode}
-            conversationMode={conversationMode}
-            messageInterval={messageInterval}
+            playbackSpeed={playbackSpeed}
             layoutMode={layoutMode}
             onOpenLMStudioSettings={() => setShowLMStudioModal(true)}
             enabledFonts={enabledFonts}

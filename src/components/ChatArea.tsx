@@ -8,6 +8,115 @@ import { motion, AnimatePresence } from "motion/react";
 import { getLuminance, hexToRgb, getContrastRatio } from "../lib/wcag";
 import { getCommunicationGoalDetails, SEMANTIC_ROLE_MAP } from "../lib/communicationModel";
 import { ANIMATION_POOL } from "../lib/animations";
+import { selectSegmentStyles } from "../lib/styleDiversifier";
+export function resolveMessageContrast(
+  message: ChatMessage,
+  bgType: "image" | "gradient",
+  gradientColor1: string,
+  gradientColor2: string,
+  bgPrompt: string | null
+) {
+  // 1. Determine base background luminance
+  let avgLum = 1.0;
+  if (bgType === "gradient" || (bgType === "image" && !bgPrompt)) {
+    const rgb1 = hexToRgb(gradientColor1);
+    const rgb2 = hexToRgb(gradientColor2);
+    const avgR = Math.round((rgb1.r + rgb2.r) / 2);
+    const avgG = Math.round((rgb1.g + rgb2.g) / 2);
+    const avgB = Math.round((rgb1.b + rgb2.b) / 2);
+    avgLum = getLuminance(avgR, avgG, avgB);
+  } else if (bgType === "image" && bgPrompt) {
+    avgLum = 0.1; // Default to dark background beneath images for contrast
+  }
+
+  // Override based on overlay types
+  if (message.weatherOverlay === "eclipse" || message.bgAnimationType === "data_grid") {
+    avgLum = 0.1;
+  } else if (
+    message.weatherOverlay === "fog" ||
+    message.weatherOverlay === "clouds" ||
+    message.weatherOverlay === "snow" ||
+    message.weatherOverlay === "sun"
+  ) {
+    avgLum = 0.9;
+  } else if (message.weatherOverlay === "rain") {
+    avgLum = Math.max(0, avgLum - 0.1);
+  }
+
+  // 2. Select baseline text color
+  let msgFontColor = "#ffffff";
+  const textContrast = message.textContrastDefault || "auto";
+  
+  if (textContrast === "light") {
+    msgFontColor = "#ffffff";
+  } else if (textContrast === "dark") {
+    msgFontColor = "#1a1a1a";
+  } else {
+    // Auto: dark text on light background, light text on dark background
+    msgFontColor = avgLum > 0.5 ? "#1a1a1a" : "#ffffff";
+  }
+
+  // 3. WCAG check & automatic adjustment (only for auto contrast)
+  if (textContrast === "auto") {
+    const textRgb = hexToRgb(msgFontColor);
+    const textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
+    let requiredRatio = 4.5;
+    if (message.wcagLevel === "A") requiredRatio = 3.0;
+    if (message.wcagLevel === "AAA") requiredRatio = 7.0;
+
+    const brightest = Math.max(avgLum, textLum);
+    const darkest = Math.min(avgLum, textLum);
+    const ratio = (brightest + 0.05) / (darkest + 0.05);
+
+    if (ratio < requiredRatio) {
+      msgFontColor = avgLum > 0.5 ? "#000000" : "#ffffff";
+    }
+  }
+
+  const finalRgb = hexToRgb(msgFontColor);
+  const isTextLight = getLuminance(finalRgb.r, finalRgb.g, finalRgb.b) > 0.5;
+  const containerBgColor = isTextLight ? '#0f172a' : '#1e293b';
+
+  // 4. Contrast Enhancement Calculations
+  const ce = message.contrastEnhancement !== undefined ? message.contrastEnhancement : 35;
+  const enhancement = ce / 100;
+  
+  let textShadow = "none";
+  let outline = "none";
+  let textFilter = "none";
+
+  if (enhancement > 0) {
+    const shadowColor = isTextLight ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)";
+    const shadowSize = Math.round(8 * enhancement);
+    textShadow = `0 0 ${shadowSize}px ${shadowColor}`;
+
+    if (enhancement > 0.6) {
+      const strokeColor = isTextLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)";
+      outline = `1px 1px 0px ${strokeColor}`;
+    }
+
+    const filterColor = isTextLight ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.75)";
+    const shadowBlurRadius = Math.round(10 * enhancement);
+    textFilter = `drop-shadow(0 0 ${shadowBlurRadius}px ${filterColor})`;
+
+    if (enhancement > 0.35) {
+      textFilter += ` drop-shadow(0 0 ${Math.round(20 * enhancement)}px ${isTextLight ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)"})`;
+    }
+
+    if (enhancement > 0.7) {
+      textFilter += ` drop-shadow(0 0 ${Math.round(35 * enhancement)}px ${isTextLight ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.3)"})`;
+    }
+  }
+
+  return {
+    msgFontColor,
+    isTextLight,
+    containerBgColor,
+    textShadow,
+    outline,
+    textFilter
+  };
+}
 
 interface ContextualEffectOverlayProps {
   effect: ContextualEffect;
@@ -589,8 +698,7 @@ interface ChatAreaProps {
   gradientColor2?: string;
   gradientDirection?: string;
   viewMode: "threaded" | "focus";
-  conversationMode: boolean;
-  messageInterval: number;
+  playbackSpeed: number;
   layoutMode: "side" | "right-side" | "stacked" | "below" | "hidden";
   onOpenLMStudioSettings?: () => void;
   enabledFonts?: string[];
@@ -607,8 +715,7 @@ export function ChatArea({
   gradientColor2 = "#ec4899",
   gradientDirection = "135deg",
   viewMode,
-  conversationMode,
-  messageInterval,
+  playbackSpeed,
   layoutMode,
   onOpenLMStudioSettings,
   enabledFonts = [],
@@ -692,7 +799,6 @@ export function ChatArea({
 
   useEffect(() => {
     if (
-      !conversationMode ||
       isTyping ||
       !latestAiMessage ||
       segments.length <= 1
@@ -700,17 +806,18 @@ export function ChatArea({
       return;
 
     if (currentSegmentIndex < segments.length - 1) {
+      const baseSegmentDuration = 13; // seconds
+      const segmentDuration = (baseSegmentDuration / playbackSpeed) * 1000;
       const timer = setTimeout(() => {
         setCurrentSegmentIndex((prev) => prev + 1);
-      }, messageInterval * 1000);
+      }, segmentDuration);
       return () => clearTimeout(timer);
     }
   }, [
-    conversationMode,
     isTyping,
     latestAiMessage,
     currentSegmentIndex,
-    messageInterval,
+    playbackSpeed,
     segments.length,
   ]);
 
@@ -820,97 +927,14 @@ export function ChatArea({
         contentOverride.fontVariant;
     }
 
-    let msgFontColor = message.fontColor || "#ffffff";
-    let effectiveBgColor = "#ffffff"; // Default to white
-
-    // 1. Determine base background luminance
-    let avgLum = 1.0; // Default light
-    if (bgType === "gradient" || (bgType === "image" && !bgPrompt)) {
-      const rgb1 = hexToRgb(gradientColor1);
-      const rgb2 = hexToRgb(gradientColor2);
-      const avgR = Math.round((rgb1.r + rgb2.r) / 2);
-      const avgG = Math.round((rgb1.g + rgb2.g) / 2);
-      const avgB = Math.round((rgb1.b + rgb2.b) / 2);
-      effectiveBgColor =
-        "#" +
-        [avgR, avgG, avgB].map((x) => x.toString(16).padStart(2, "0")).join("");
-      avgLum = getLuminance(avgR, avgG, avgB);
-    } else if (bgType === "image" && bgPrompt) {
-      const textRgb = hexToRgb(msgFontColor);
-      const isTextLight = getLuminance(textRgb.r, textRgb.g, textRgb.b) > 0.5;
-      avgLum = isTextLight ? 0.1 : 0.9;
-      effectiveBgColor = isTextLight ? "#0f172a" : "#ffffff";
-    }
-
-    // 2. Override based on Generative Background (Foreground Priority & Color Separation)
-    if (message.weatherOverlay === "eclipse") {
-      avgLum = 0.1; // Eclipse is very dark
-      effectiveBgColor = "#0f172a";
-    } else if (
-      message.weatherOverlay === "fog" ||
-      message.weatherOverlay === "clouds" ||
-      message.weatherOverlay === "snow"
-    ) {
-      avgLum = 0.9; // Fog, clouds, snow are light
-      effectiveBgColor = "#ffffff";
-    } else if (message.weatherOverlay === "sun") {
-      avgLum = 0.9; // Sun is light
-      effectiveBgColor = "#fffbeb"; // Light yellow
-    } else if (message.bgAnimationType === "data_grid") {
-      avgLum = 0.1; // dark background for data stream
-      effectiveBgColor = "#0f172a";
-    } else if (message.weatherOverlay === "rain") {
-      avgLum = Math.max(0, avgLum - 0.1);
-    }
-
-    // 3. WCAG Contrast Enforcement
-    let textRgb = hexToRgb(msgFontColor);
-    let textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
-
-    let requiredRatio = 4.5;
-    if (message.wcagLevel === "A") requiredRatio = 3.0;
-    if (message.wcagLevel === "AAA") requiredRatio = 7.0;
-
-    let brightest = Math.max(avgLum, textLum);
-    let darkest = Math.min(avgLum, textLum);
-    let ratio = (brightest + 0.05) / (darkest + 0.05);
-
-    // Hard luminance threshold for "light" background flip.
-    if (
-      avgLum > 0.5 ||
-      ratio < requiredRatio ||
-      message.weatherOverlay === "sun" ||
-      message.weatherOverlay === "fog" ||
-      message.weatherOverlay === "clouds" ||
-      message.weatherOverlay === "snow" ||
-      message.bgAnimationType === "confetti" ||
-      message.bgAnimationType === "blooming_petals"
-    ) {
-      msgFontColor = avgLum > 0.5 ? "#1a1a1a" : "#ffffff";
-      textRgb = hexToRgb(msgFontColor);
-      textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
-      effectiveBgColor = textLum > 0.5 ? "#1a1a1a" : "#ffffff";
-
-      // Secondary check specifically for AAA compliance enforcement
-      brightest = Math.max(avgLum, textLum);
-      darkest = Math.min(avgLum, textLum);
-      ratio = (brightest + 0.05) / (darkest + 0.05);
-
-      if (ratio < requiredRatio && message.wcagLevel === "AAA") {
-        // Force extreme contrast if AAA fails
-        msgFontColor = avgLum > 0.5 ? "#000000" : "#ffffff";
-        effectiveBgColor = avgLum > 0.5 ? "#000000" : "#ffffff";
-      }
-    }
-
-    const needsTextShadow =
-      message.wcagLevel === "AAA" &&
-      (bgType === "gradient" || bgType === "image");
-    const textShadowValue = needsTextShadow
-      ? avgLum > 0.5
-        ? "0 0 8px rgba(255,255,255,0.8)"
-        : "0 0 8px rgba(0,0,0,0.8)"
-      : "none";
+    const {
+      msgFontColor,
+      isTextLight,
+      containerBgColor,
+      textShadow: textShadowValue,
+      outline,
+      textFilter
+    } = resolveMessageContrast(message, bgType, gradientColor1, gradientColor2, bgPrompt);
 
     // Opacity scaling based on text length to prevent visual noise
     const isLongText = message.content.length > 200;
@@ -922,7 +946,53 @@ export function ChatArea({
     
     // Emotional Energy Budget calculation using semantic spans
     const goalDetails = getCommunicationGoalDetails(msgSentiment, msgEngagement);
-    const allSpans = message.emphasizedWords || [];
+    const rawSpans = message.emphasizedWords || [];
+
+    const rankKeywords = (kws: EmphasizedWord[], limit: number): EmphasizedWord[] => {
+      if (limit <= 0) return [];
+      const uniqueKeywords: EmphasizedWord[] = [];
+      const seen = new Set<string>();
+      for (const kw of kws) {
+        if (!kw || !kw.word) continue;
+        const clean = kw.word.trim().toLowerCase();
+        if (!seen.has(clean)) {
+          seen.add(clean);
+          uniqueKeywords.push(kw);
+        }
+      }
+
+      const scored = uniqueKeywords.map(kw => {
+        let score = 0;
+        const w = kw.word.trim();
+        const role = kw.semanticRole?.toLowerCase() || '';
+        if (['warning', 'failure', 'destruction', 'instability'].includes(role)) score += 100;
+        else if (['primary-action'].includes(role)) score += 90;
+        else if (['success', 'delight'].includes(role)) score += 80;
+        else if (['reassurance', 'empathy'].includes(role)) score += 70;
+        else if (['important-keyword', 'important'].includes(role)) score += 60;
+        else if (['secondary-action'].includes(role)) score += 50;
+        else if (role) score += 30;
+        else score += 10;
+
+        if (w.includes('!')) score += 35;
+        if (w.includes('?')) score += 20;
+        if (w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w)) score += 25;
+        if (w.length > 1 && w[0] === w[0].toUpperCase() && w !== w.toUpperCase()) score += 15;
+
+        const emotionalTerms = ['love', 'hate', 'happy', 'sad', 'angry', 'scared', 'fear', 'joy', 'sorry', 'hurt', 'pain', 'excited', 'calm', 'anxious', 'worry', 'wonderful', 'terrible', 'great', 'bad', 'amazing', 'brilliant', 'dreadful', 'awful', 'perfect', 'fail', 'win'];
+        if (emotionalTerms.some(term => w.toLowerCase().includes(term))) {
+          score += 40;
+        }
+        score += Math.min(w.length * 2, 20);
+        return { kw, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      return scored.slice(0, limit).map(item => item.kw);
+    };
+
+    const wordLimit = message.animatedWordLimit !== undefined ? message.animatedWordLimit : (message.maxAnimatedKeywords !== undefined ? message.maxAnimatedKeywords : 8);
+    const allSpans = rankKeywords(rawSpans, wordLimit);
 
     const getPriority = (r?: string) => {
       if (!r) return 99;
@@ -967,22 +1037,37 @@ export function ChatArea({
     let alignItemsClass = "items-center";
     let marginClass = "mx-auto";
 
-    if (contentOverride?.alignment) {
-      if (contentOverride.alignment === "left") {
-        textAlignmentClass = "text-left";
-        justifyContentClass = "justify-start";
-        alignItemsClass = "items-start";
-        marginClass = "ml-0 mr-auto";
+    let alignment = message.alignmentDefault || "auto";
+    if (alignment === "auto") {
+      if (contentOverride?.alignment) {
+        alignment = contentOverride.alignment;
+      } else {
+        const isShort = message.content.length < 60;
+        const isHeadline = contentOverride?.scale === "large" || contentOverride?.scale === "oversized" || contentOverride?.scale === "massive";
+        alignment = (isShort || isHeadline) ? "center" : "left";
       }
-      if (contentOverride.alignment === "right") {
-        textAlignmentClass = "text-right";
-        justifyContentClass = "justify-end";
-        alignItemsClass = "items-end";
-        marginClass = "ml-auto mr-0";
-      }
-      if (contentOverride.alignment === "justify") {
-        textAlignmentClass = "text-justify";
-      }
+    }
+
+    if (alignment === "left") {
+      textAlignmentClass = "text-left";
+      justifyContentClass = "justify-start";
+      alignItemsClass = "items-start";
+      marginClass = "ml-0 mr-auto";
+    } else if (alignment === "right") {
+      textAlignmentClass = "text-right";
+      justifyContentClass = "justify-end";
+      alignItemsClass = "items-end";
+      marginClass = "ml-auto mr-0";
+    } else if (alignment === "justify") {
+      textAlignmentClass = "text-justify";
+      justifyContentClass = "justify-start";
+      alignItemsClass = "items-start";
+      marginClass = "ml-0 mr-auto";
+    } else {
+      textAlignmentClass = "text-center";
+      justifyContentClass = "justify-center";
+      alignItemsClass = "items-center";
+      marginClass = "mx-auto";
     }
 
     let dynamicScale = 1;
@@ -993,9 +1078,20 @@ export function ChatArea({
       if (contentOverride.scale === "massive") dynamicScale = 2.8;
     }
 
+    const segmentStyles = selectSegmentStyles({
+      sentiment: msgSentiment,
+      engagement: msgEngagement,
+      activeAnimations: message.activeAnimations,
+      activeDecorations: message.activeDecorations,
+      emotionInfluence: message.emotionInfluence,
+      animationIntensity: message.animationIntensity,
+      role: message.role,
+      content: contentToRender
+    });
+
     return (
       <div
-        className={`flex flex-col gap-3 w-full ${textAlignmentClass} ${isFocusMode ? `h-full ${justifyContentClass}` : ""}`}
+        className={`flex flex-col gap-3 w-full transition-all duration-300 ${textAlignmentClass} ${isFocusMode ? `h-full ${justifyContentClass}` : ""}`}
       >
         <motion.div
           style={{
@@ -1003,7 +1099,10 @@ export function ChatArea({
             fontSize: `${msgFontSize * dynamicScale}px`,
             color: msgFontColor,
             textShadow: textShadowValue,
-            transition: "color 0.3s ease-in-out, text-shadow 0.3s ease-in-out",
+            WebkitTextStroke: outline !== "none" ? outline : undefined,
+            filter: textFilter,
+            letterSpacing: message.trackingDefault !== undefined ? `${message.trackingDefault / 100}em` : undefined,
+            transition: "color 0.3s ease-in-out, text-shadow 0.3s ease-in-out, filter 0.3s ease-in-out",
           }}
           className={`leading-relaxed whitespace-pre-wrap ${isFocusMode ? `w-[90%] max-w-[90%] ${marginClass}` : ""}`}
           initial="hidden"
@@ -1016,6 +1115,19 @@ export function ChatArea({
           }}
         >
           {words.map((word, index) => {
+            const formattedWord = (() => {
+              const tc = message.textCaseDefault || "auto";
+              if (tc === "uppercase") return word.toUpperCase();
+              if (tc === "title") return word.replace(/\b\w/g, c => c.toUpperCase());
+              if (tc === "sentence") {
+                if (index === 0) {
+                  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                }
+                return word.toLowerCase();
+              }
+              return word;
+            })();
+
             // Clean punctuation for matching
             const cleanWord = word
               .replace(/[.,!?()[\]{}"']/g, "")
@@ -1041,7 +1153,7 @@ export function ChatArea({
             const isSpace = /^\s+$/.test(word);
 
             if (isSpace) {
-              return <span key={index}>{word}</span>;
+              return <span key={index}>{formattedWord}</span>;
             }
 
             // Calculate specific timing for this word
@@ -1050,8 +1162,14 @@ export function ChatArea({
               wordDuration += longWordBonus;
             }
 
-            // Overlap Rule: Start next word at ~75% completion of the previous word's fade
-            let step = wordDuration * 0.75;
+            // Let emotionInfluence adjust the stagger timing (overlap) and pauses
+            const influence = message.emotionInfluence !== undefined ? message.emotionInfluence : 1.0;
+            let overlapCoeff = 0.75;
+            if (influence > 0) {
+              const deviation = (speedFactor - 0.5) * 0.4 * Math.min(2.0, influence);
+              overlapCoeff = Math.max(0.3, Math.min(1.2, 0.75 - deviation));
+            }
+            let step = wordDuration * overlapCoeff;
 
             if (/[.!?]/.test(word)) {
               step = wordDuration + sentencePause;
@@ -1064,27 +1182,32 @@ export function ChatArea({
 
             const content = matchedEmphasizedWord ? (
               <KineticWord
-                word={word}
+                word={formattedWord}
                 sentiment={msgSentiment}
                 engagement={msgEngagement}
                 isEmphasized={true}
                 baseColor={msgFontColor}
-                backgroundColor={effectiveBgColor}
+                backgroundColor={containerBgColor}
                 motionStyle={message.motionStyle}
                 activeDecorations={message.activeDecorations || []}
                 activeAnimations={message.activeAnimations}
                 emotionInfluence={message.emotionInfluence}
                 animationIntensity={message.animationIntensity}
-                animationStability={message.animationStability}
                 wcagLevel={message.wcagLevel}
                 wcagStrictMode={message.wcagStrictMode}
                 semanticRole={matchedEmphasizedWord.semanticRole}
                 decorationAllowed={decorationAllowed}
                 animationAllowed={animationAllowed}
+                segmentAnimation={segmentStyles.animationId}
+                segmentDecoration={segmentStyles.decorationId}
+                segmentIntensity={segmentStyles.intensity}
                 enabledFonts={enabledFonts}
+                fontWeightDefault={message.fontWeightDefault}
+                trackingDefault={message.trackingDefault}
+                textCaseDefault={message.textCaseDefault}
               />
             ) : (
-              <span>{word}</span>
+              <span>{formattedWord}</span>
             );
 
             return (
@@ -1138,75 +1261,36 @@ export function ChatArea({
   const userMessagesToShow =
     viewMode === "focus" ? userMessages.slice(-1) : userMessages;
 
-  // 1. Calculate the background luminance (avgLum) exactly like the text scope
-  let avgLum = 1.0;
-  if (bgType === "gradient" || (bgType === "image" && !bgPrompt)) {
-    const rgb1 = hexToRgb(gradientColor1);
-    const rgb2 = hexToRgb(gradientColor2);
-    const avgR = Math.round((rgb1.r + rgb2.r) / 2);
-    const avgG = Math.round((rgb1.g + rgb2.g) / 2);
-    const avgB = Math.round((rgb1.b + rgb2.b) / 2);
-    avgLum = getLuminance(avgR, avgG, avgB);
-  } else if (bgType === "image" && bgPrompt) {
-    // Standard base image: starts light or dark based on message's fontColor
-    const startFontColor = latestAiMessage?.fontColor || "#ffffff";
-    const textRgb = hexToRgb(startFontColor);
-    const isTextLight = getLuminance(textRgb.r, textRgb.g, textRgb.b) > 0.5;
-    avgLum = isTextLight ? 0.1 : 0.9;
-  }
+  let isTextLight = true;
+  let containerBgColor = '#0f172a';
+  let effectiveFontColor = '#ffffff';
 
-  // 2. Apply weather and generative overlay modifications
   if (latestAiMessage) {
-    if (latestAiMessage.weatherOverlay === "eclipse") {
+    const contrastData = resolveMessageContrast(
+      latestAiMessage,
+      bgType,
+      gradientColor1,
+      gradientColor2,
+      bgPrompt
+    );
+    isTextLight = contrastData.isTextLight;
+    containerBgColor = contrastData.containerBgColor;
+    effectiveFontColor = contrastData.msgFontColor;
+  } else {
+    let avgLum = 1.0;
+    if (bgType === "gradient" || (bgType === "image" && !bgPrompt)) {
+      const rgb1 = hexToRgb(gradientColor1);
+      const rgb2 = hexToRgb(gradientColor2);
+      const avgR = Math.round((rgb1.r + rgb2.r) / 2);
+      const avgG = Math.round((rgb1.g + rgb2.g) / 2);
+      const avgB = Math.round((rgb1.b + rgb2.b) / 2);
+      avgLum = getLuminance(avgR, avgG, avgB);
+    } else if (bgType === "image" && bgPrompt) {
       avgLum = 0.1;
-    } else if (
-      latestAiMessage.weatherOverlay === "fog" ||
-      latestAiMessage.weatherOverlay === "clouds" ||
-      latestAiMessage.weatherOverlay === "snow" ||
-      latestAiMessage.weatherOverlay === "sun"
-    ) {
-      avgLum = 0.9;
-    } else if (latestAiMessage.bgAnimationType === "data_grid") {
-      avgLum = 0.1;
-    } else if (latestAiMessage.weatherOverlay === "rain") {
-      avgLum = Math.max(0, avgLum - 0.1);
     }
+    isTextLight = avgLum <= 0.5;
+    containerBgColor = isTextLight ? '#0f172a' : '#1e293b';
   }
-
-  // 3. Contrast Check to find the final, true effective font color
-  let effectiveFontColor = latestAiMessage?.fontColor || "#ffffff";
-  const textRgb = hexToRgb(effectiveFontColor);
-  const textLum = getLuminance(textRgb.r, textRgb.g, textRgb.b);
-
-  let requiredRatio = 4.5;
-  if (latestAiMessage) {
-    if (latestAiMessage.wcagLevel === "A") requiredRatio = 3.0;
-    if (latestAiMessage.wcagLevel === "AAA") requiredRatio = 7.0;
-  }
-
-  const brightest = Math.max(avgLum, textLum);
-  const darkest = Math.min(avgLum, textLum);
-  const ratio = (brightest + 0.05) / (darkest + 0.05);
-
-  if (
-    avgLum > 0.5 ||
-    ratio < requiredRatio ||
-    latestAiMessage?.weatherOverlay === "sun" ||
-    latestAiMessage?.weatherOverlay === "fog" ||
-    latestAiMessage?.weatherOverlay === "clouds" ||
-    latestAiMessage?.weatherOverlay === "snow" ||
-    latestAiMessage?.bgAnimationType === "confetti" ||
-    latestAiMessage?.bgAnimationType === "blooming_petals"
-  ) {
-    effectiveFontColor = avgLum > 0.5 ? "#1a1a1a" : "#ffffff";
-  }
-
-  const effectiveRgb = hexToRgb(effectiveFontColor);
-  const isTextLight =
-    getLuminance(effectiveRgb.r, effectiveRgb.g, effectiveRgb.b) > 0.5;
-  // containerBgColor is the base behind the gradient — gradient always covers it fully.
-  // Never use pure white to avoid harsh flashes during color transitions.
-  const containerBgColor = isTextLight ? '#0f172a' : '#1e293b';
 
   const isLongText = latestAiMessage?.content
     ? latestAiMessage.content.length > 200
@@ -1618,69 +1702,6 @@ export function ChatArea({
             ) : null}
           </AnimatePresence>
 
-          {/* Manual Navigation Controls (Bottom of Response Window) */}
-          {!isTyping &&
-            latestAiMessage &&
-            !conversationMode &&
-            segments.length > 1 && (
-              <div className="absolute bottom-8 left-0 right-0 flex items-center gap-4 justify-center z-20">
-                <button
-                  onClick={() =>
-                    setCurrentSegmentIndex(Math.max(0, currentSegmentIndex - 1))
-                  }
-                  disabled={currentSegmentIndex === 0}
-                  className={`p-2 rounded-full transition-colors backdrop-blur-sm border disabled:opacity-30 disabled:cursor-not-allowed ${
-                    isTextLight
-                      ? "bg-white/10 hover:bg-white/20 text-white border-white/20"
-                      : "bg-black/5 hover:bg-black/10 text-slate-800 border-black/10"
-                  }`}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                </button>
-                <span
-                  className={`text-xs font-mono ${isTextLight ? "text-white/70" : "text-slate-500"}`}
-                >
-                  {currentSegmentIndex + 1} / {segments.length}
-                </span>
-                <button
-                  onClick={() =>
-                    setCurrentSegmentIndex(
-                      Math.min(segments.length - 1, currentSegmentIndex + 1),
-                    )
-                  }
-                  disabled={currentSegmentIndex === segments.length - 1}
-                  className={`p-2 rounded-full transition-colors backdrop-blur-sm border disabled:opacity-30 disabled:cursor-not-allowed ${
-                    isTextLight
-                      ? "bg-white/10 hover:bg-white/20 text-white border-white/20"
-                      : "bg-black/5 hover:bg-black/10 text-slate-800 border-black/10"
-                  }`}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </button>
-              </div>
-            )}
         </div>
 
         {/* Tab Bar Overlaid Inside AI Response Window (Bottom edge) */}
@@ -1728,7 +1749,7 @@ export function ChatArea({
         {hasUserMessages && !isTyping && !isTabsCollapsed && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 193, opacity: 1 }}
+            animate={{ height: 210, opacity: 1 }}
             exit={{ height: 0, opacity: 0, transition: { duration: 0.2, ease: "easeIn" } }}
             transition={{ 
               duration: 0.25, 
@@ -1838,72 +1859,100 @@ export function ChatArea({
                     ? appliedAnimationsList.join(', ')
                     : 'none';
 
-                  return (
-                    <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-slate-700/50 text-[11px] font-mono space-y-1.5 text-slate-300">
-                      <div className="grid grid-cols-4 gap-x-4 gap-y-1">
-                        <div className="col-span-4 pb-1 border-b border-slate-800/80 mb-1">
-                          <span className="text-slate-400">Affective State:</span>{" "}
-                          <span className="text-slate-200 font-semibold">{getClosestEmotion(latestAiMessage?.sentiment ?? 0, latestAiMessage?.engagement ?? 0)}</span>
-                        </div>
-                        
-                        {/* Row 1 (top half of the columns) */}
-                        <div>
-                          <span className="text-slate-400">Sentiment:</span>{" "}
-                          {(latestAiMessage?.sentiment ?? 0).toFixed(2)}
-                        </div>
-                        <div className="truncate" title={latestAiMessage?.fontFamily}>
-                          <span className="text-slate-400">Font:</span>{" "}
-                          {(latestAiMessage?.fontFamily || '"Inter"').replace(/"/g, "").split(",")[0]}
-                        </div>
-                        <div className="truncate" title={motionDisplay}>
-                          <span className="text-slate-400">Motion:</span> {motionDisplay}
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Gender:</span>{" "}
-                          {latestAiMessage?.gender || "Neutral"}
-                        </div>
+                    return (
+                      <div className="p-3 bg-slate-900/50 backdrop-blur-md rounded-lg border border-slate-700/50 text-[11px] font-mono space-y-1.5 text-slate-300">
+                        <div className="grid grid-cols-4 gap-x-4 gap-y-1.5">
+                          {/* Column 1: Affective / Emotion Settings */}
+                          <div className="space-y-1">
+                            <div>
+                              <span className="text-slate-400 uppercase">Affective State:</span>{" "}
+                              <span className="text-slate-200 font-semibold">{getClosestEmotion(latestAiMessage?.sentiment ?? 0, latestAiMessage?.engagement ?? 0)}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Sentiment:</span>{" "}
+                              {(latestAiMessage?.sentiment ?? 0).toFixed(2)}
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Engagement:</span>{" "}
+                              {(latestAiMessage?.engagement ?? 0).toFixed(2)}
+                            </div>
+                          </div>
+                          
+                          {/* Column 2: Core Typography Settings */}
+                          <div className="space-y-1">
+                            <div className="truncate" title={latestAiMessage?.fontFamily}>
+                              <span className="text-slate-400 uppercase">Font:</span>{" "}
+                              <span className="text-slate-200">{(latestAiMessage?.fontFamily || '"Inter"').replace(/"/g, "").split(",")[0]}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Size:</span>{" "}
+                              {latestAiMessage?.fontSize || 16}px
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Weight:</span>{" "}
+                              <span className="capitalize">{latestAiMessage?.fontWeightDefault || "regular"}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Tracking:</span>{" "}
+                              {latestAiMessage?.trackingDefault !== undefined && latestAiMessage.trackingDefault > 0 ? `+${latestAiMessage.trackingDefault}` : latestAiMessage?.trackingDefault ?? 0}
+                            </div>
+                          </div>
 
-                        {/* Row 2 (bottom half of the columns) */}
-                        <div>
-                          <span className="text-slate-400">Engagement:</span>{" "}
-                          {(latestAiMessage?.engagement ?? 0).toFixed(2)}
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Size:</span>{" "}
-                          {latestAiMessage?.fontSize || 16}px
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Accessibility:</span>{" "}
-                          {latestAiMessage?.wcagLevel || "AA"}
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Age:</span>{" "}
-                          {latestAiMessage?.age || 30}
-                        </div>
+                          {/* Column 3: Advanced Typography & Contrast Settings */}
+                          <div className="space-y-1">
+                            <div>
+                              <span className="text-slate-400 uppercase">Case:</span>{" "}
+                              <span className="capitalize">{latestAiMessage?.textCaseDefault === "auto" ? "Automatic" : latestAiMessage?.textCaseDefault || "Automatic"}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Alignment:</span>{" "}
+                              <span className="capitalize">{latestAiMessage?.alignmentDefault || "automatic"}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Contrast:</span>{" "}
+                              <span className="capitalize">{latestAiMessage?.textContrastDefault || "auto"}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Enhance:</span>{" "}
+                              {latestAiMessage?.contrastEnhancement ?? 0}%
+                            </div>
+                          </div>
 
-                        {/* Generative Semantic Mapping */}
-                        <div className="col-span-4 border-t border-slate-700/50 my-1 pt-1"></div>
-                        <div className="col-span-4 font-semibold text-slate-200">
-                          Generative Semantic Mapping:
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Base Theme:</span>{" "}
-                          {latestAiMessage?.baseTheme || "Minimalist"}
-                        </div>
-                        <div className="truncate" title={bgType === "gradient" ? "Gradient" : "Image"}>
-                          <span className="text-slate-400">Background:</span>{" "}
-                          {bgType === "gradient" ? "Gradient" : "Image"}
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Density:</span>{" "}
-                          {latestAiMessage?.particleDensity || 5}
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Weather:</span>{" "}
-                          {latestAiMessage?.weatherOverlay || "none"}
+                          {/* Column 4: Motion & Accessibility Settings */}
+                          <div className="space-y-1">
+                            <div className="truncate" title={motionDisplay}>
+                              <span className="text-slate-400 uppercase">Motion:</span>{" "}
+                              <span className="text-slate-200">{motionDisplay}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 uppercase">Accessibility:</span>{" "}
+                              {latestAiMessage?.wcagLevel || "AA"}
+                            </div>
+                          </div>
+
+                          {/* Generative Semantic Mapping */}
+                          <div className="col-span-4 border-t border-slate-700/50 my-1 pt-1"></div>
+                          <div className="col-span-4 font-semibold text-slate-200 uppercase">
+                            Generative Semantic Mapping:
+                          </div>
+                          <div>
+                            <span className="text-slate-400 uppercase">Base Theme:</span>{" "}
+                            {latestAiMessage?.baseTheme || "Minimalist"}
+                          </div>
+                          <div className="truncate" title={bgType === "gradient" ? "Gradient" : "Image"}>
+                            <span className="text-slate-400 uppercase">Background:</span>{" "}
+                            {bgType === "gradient" ? "Gradient" : "Image"}
+                          </div>
+                          <div>
+                            <span className="text-slate-400 uppercase">Density:</span>{" "}
+                            {latestAiMessage?.particleDensity || 5}
+                          </div>
+                          <div>
+                            <span className="text-slate-400 uppercase">Weather:</span>{" "}
+                            {latestAiMessage?.weatherOverlay || "none"}
+                          </div>
                         </div>
                       </div>
-                    </div>
                   );
                 })()}
 
